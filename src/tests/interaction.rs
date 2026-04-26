@@ -233,6 +233,91 @@ fn test_scratchpad_can_hold_multiple_windows() {
 }
 
 #[test]
+fn test_scratchpad_focus_moves_between_windows() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+        Event::Command {
+            command: Command::Scratchpad(ScratchpadAction::Hide),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::West)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::East)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::First)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::Last)),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(3)
+        .on_iteration(4, |world| {
+            assert!(world.resource::<ScratchpadState>().is_visible());
+            assert_focused!(world, 2);
+        })
+        .on_iteration(5, |world| {
+            assert_focused!(world, 1);
+        })
+        .on_iteration(6, |world| {
+            assert_focused!(world, 2);
+        })
+        .on_iteration(7, |world| {
+            assert_focused!(world, 1);
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_scratchpad_swap_reorders_windows() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+        Event::Command {
+            command: Command::Scratchpad(ScratchpadAction::Hide),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Swap(Direction::West)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Swap(Direction::East)),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(3)
+        .on_iteration(4, |world| {
+            assert_focused!(world, 1);
+            assert_window_at!(world, 1, 103, 132);
+            assert_window_size!(world, 1, 403, 524);
+            assert_window_at!(world, 2, 518, 132);
+            assert_window_size!(world, 2, 404, 524);
+        })
+        .on_iteration(5, |world| {
+            assert_focused!(world, 1);
+            assert_window_at!(world, 2, 103, 132);
+            assert_window_size!(world, 2, 403, 524);
+            assert_window_at!(world, 1, 518, 132);
+            assert_window_size!(world, 1, 404, 524);
+        })
+        .run(commands);
+}
+
+#[test]
 fn test_virtual_workspace_switch_hides_scratchpad_without_moving_it_between_rows() {
     let commands = vec![
         Event::MenuOpened { window_id: 0 },

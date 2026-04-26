@@ -7,7 +7,7 @@ use bevy::math::IRect;
 use objc2_foundation::{NSPoint, NSRect, NSSize};
 use tracing::debug;
 
-use crate::commands::{Command, Operation, ScratchpadAction};
+use crate::commands::{Command, Direction, Operation, ScratchpadAction};
 use crate::config::Config;
 use crate::ecs::layout::LayoutStrip;
 use crate::ecs::params::{ActiveDisplay, Windows};
@@ -129,6 +129,12 @@ pub fn scratchpad_command_handler(
         match command {
             Command::Scratchpad(action) => {
                 handle_scratchpad_action(action, &mut state, &mut workspaces, &mut commands);
+            }
+            Command::Window(Operation::Focus(direction)) => {
+                focus_scratchpad_window(direction, &windows, &mut state, &mut commands);
+            }
+            Command::Window(Operation::Swap(direction)) => {
+                swap_scratchpad_window(direction, &windows, &mut state, &mut commands);
             }
             Command::Window(Operation::Scratchpad) => {
                 toggle_focused_window(&windows, &mut state, &mut workspaces, &mut commands);
@@ -318,6 +324,78 @@ fn toggle_focused_window(
         reshuffle_around(neighbour, commands);
     }
     debug!("Moved {focused_entity} into scratchpad");
+}
+
+fn focus_scratchpad_window(
+    direction: &Direction,
+    windows: &Windows,
+    state: &mut ScratchpadState,
+    commands: &mut Commands,
+) {
+    let Some((_, index)) = focused_scratchpad_index(windows, state) else {
+        return;
+    };
+    let Some(target_index) = scratchpad_target_index(direction, index, state.windows.len()) else {
+        return;
+    };
+    let Some(entity) = state.windows.get(target_index).copied() else {
+        return;
+    };
+
+    state.last_focused = Some(entity);
+    focus_entity(entity, true, commands);
+}
+
+fn swap_scratchpad_window(
+    direction: &Direction,
+    windows: &Windows,
+    state: &mut ScratchpadState,
+    commands: &mut Commands,
+) {
+    let Some((focused_entity, index)) = focused_scratchpad_index(windows, state) else {
+        return;
+    };
+    let Some(target_index) = scratchpad_target_index(direction, index, state.windows.len()) else {
+        return;
+    };
+    if index == target_index {
+        return;
+    }
+
+    if index < target_index {
+        for idx in index..target_index {
+            state.windows.swap(idx, idx + 1);
+        }
+    } else {
+        for idx in (target_index..index).rev() {
+            state.windows.swap(idx, idx + 1);
+        }
+    }
+
+    state.last_focused = Some(focused_entity);
+    focus_entity(focused_entity, true, commands);
+}
+
+fn focused_scratchpad_index(windows: &Windows, state: &ScratchpadState) -> Option<(Entity, usize)> {
+    if !state.visible {
+        return None;
+    }
+    let (_, focused_entity) = windows.focused()?;
+    let index = state
+        .windows
+        .iter()
+        .position(|entity| *entity == focused_entity)?;
+    Some((focused_entity, index))
+}
+
+fn scratchpad_target_index(direction: &Direction, index: usize, len: usize) -> Option<usize> {
+    match direction {
+        Direction::West => index.checked_sub(1),
+        Direction::East => (index + 1 < len).then_some(index + 1),
+        Direction::First => Some(0),
+        Direction::Last => len.checked_sub(1),
+        Direction::North | Direction::South => None,
+    }
 }
 
 fn focus_active_workspace(
