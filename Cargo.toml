@@ -35,20 +35,34 @@ notify = { version = "8.2.0", features = ["macos_fsevent"] }
 num_enum = "0.7.6"
 objc2 = { version = "0.6.4", features = ["catch-all", "exception"] }
 objc2-app-kit = { version = "0.3.2", features = [
+  "objc2-core-foundation",
+  "objc2-core-graphics",
+  "objc2-quartz-core",
   "NSBezierPath",
+  "NSButton",
   "NSColor",
+  "NSControl",
   "NSGraphics",
   "NSGraphicsContext",
+  "NSResponder",
   "NSScreen",
-  "NSView",
-  "NSWindow",
+  "NSStatusBar",
+  "NSStatusBarButton",
+  "NSStatusItem",
   "NSFont",
   "NSAttributedString",
   "NSParagraphStyle",
   "NSStringDrawing",
+  "NSView",
+  "NSWindow",
 ] }
 objc2-core-foundation = { version = "0.3.2", features = ["CFRunLoop"] }
 objc2-core-graphics = "0.3.2"
+objc2-quartz-core = { version = "0.3.2", features = [
+  "CALayer",
+  "objc2-core-foundation",
+  "objc2-core-graphics",
+] }
 objc2-foundation = { version = "0.3.2", features = [
   "NSNotification",
   "NSProcessInfo",
