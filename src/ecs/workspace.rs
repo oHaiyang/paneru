@@ -28,6 +28,7 @@ use crate::platform::{WinID, WorkspaceId};
 pub(super) struct VirtualMoveMarker {
     pub target_virtual_index: u32,
     pub move_focus: MoveFocus,
+    pub preserve_virtual_index: bool,
 }
 
 /// Keeps a manually-created numbered virtual row stable even while it is empty.
@@ -639,6 +640,9 @@ pub(super) fn handle_virtual_window_moves(
                 SelectedVirtualMarker,
                 ChildOf(display_entity),
             ));
+            if move_marker.preserve_virtual_index {
+                spawned.insert(PersistentVirtualMarker);
+            }
             if stay {
                 // show_active_workspace needs this to restore the strip
                 // onscreen when the user later switches to this workspace.
@@ -816,12 +820,13 @@ pub(crate) fn move_virtual_workspace_bind(
     active_display: ActiveDisplay,
     mut commands: Commands,
 ) {
-    let Some(Operation::VirtualMove(direction, move_focus)) =
-        filter_window_operations(&mut messages, |op| {
-            matches!(op, Operation::VirtualMove(_, _))
-        })
-        .next()
-    else {
+    let Some(operation) = filter_window_operations(&mut messages, |op| {
+        matches!(
+            op,
+            Operation::VirtualMove(_, _) | Operation::VirtualMoveTo(_, _)
+        )
+    })
+    .next() else {
         return;
     };
 
@@ -831,23 +836,38 @@ pub(crate) fn move_virtual_workspace_bind(
 
     let current_virtual_index = active_display.active_strip().virtual_index;
 
-    let target_virtual_index = match direction {
-        Direction::South if active_display.active_strip().len() > 1 => current_virtual_index + 1,
-        Direction::North => {
-            if current_virtual_index == 0 {
+    let (target_virtual_index, move_focus, preserve_virtual_index) = match operation {
+        Operation::VirtualMove(direction, move_focus) => {
+            let target_virtual_index = match direction {
+                Direction::South if active_display.active_strip().len() > 1 => {
+                    current_virtual_index + 1
+                }
+                Direction::North => {
+                    if current_virtual_index == 0 {
+                        return;
+                    }
+                    current_virtual_index - 1
+                }
+                _ => return,
+            };
+            (target_virtual_index, *move_focus, false)
+        }
+        Operation::VirtualMoveTo(target_virtual_index, move_focus) => {
+            if current_virtual_index == *target_virtual_index {
                 return;
             }
-            current_virtual_index - 1
+            (*target_virtual_index, *move_focus, true)
         }
         _ => return,
     };
 
     commands.entity(focused_entity).insert(VirtualMoveMarker {
         target_virtual_index,
-        move_focus: *move_focus,
+        move_focus,
+        preserve_virtual_index,
     });
 
-    if *move_focus == MoveFocus::Follow {
+    if move_focus == MoveFocus::Follow {
         flash_message(format!("{}", target_virtual_index + 1), 1.0, &mut commands);
     }
 

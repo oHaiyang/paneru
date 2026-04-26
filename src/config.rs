@@ -172,6 +172,16 @@ fn parse_virtual_index(index: &str) -> Result<u32> {
     })
 }
 
+fn parse_virtual_move(target: &str, move_focus: MoveFocus) -> Result<Operation> {
+    match target.parse::<u32>() {
+        Ok(_) => Ok(Operation::VirtualMoveTo(
+            parse_virtual_index(target)?,
+            move_focus,
+        )),
+        Err(_) => Ok(Operation::VirtualMove(parse_direction(target)?, move_focus)),
+    }
+}
+
 /// Parses a command argument vector into an `Operation` enum.
 ///
 /// # Arguments
@@ -212,12 +222,16 @@ fn parse_operation(argv: &[&str]) -> Result<Operation> {
             }
         }
         "virtualgoto" => Operation::VirtualGoto(parse_virtual_index(argv.get(1).ok_or(err)?)?),
-        "virtualmove" => {
-            Operation::VirtualMove(parse_direction(argv.get(1).ok_or(err)?)?, MoveFocus::Follow)
-        }
-        "virtualsend" => {
-            Operation::VirtualMove(parse_direction(argv.get(1).ok_or(err)?)?, MoveFocus::Stay)
-        }
+        "virtualmove" => parse_virtual_move(argv.get(1).ok_or(err)?, MoveFocus::Follow)?,
+        "virtualsend" => parse_virtual_move(argv.get(1).ok_or(err)?, MoveFocus::Stay)?,
+        "virtualmoveto" => Operation::VirtualMoveTo(
+            parse_virtual_index(argv.get(1).ok_or(err)?)?,
+            MoveFocus::Follow,
+        ),
+        "virtualsendto" => Operation::VirtualMoveTo(
+            parse_virtual_index(argv.get(1).ok_or(err)?)?,
+            MoveFocus::Stay,
+        ),
         _ => {
             return Err(err);
         }
@@ -1519,6 +1533,28 @@ fn test_parse_virtual_goto_commands() {
         Command::Window(Operation::VirtualGoto(4))
     ));
     assert!(parse_command(&["window", "virtual", "0"]).is_err());
+}
+
+#[test]
+fn test_parse_virtual_move_to_commands() {
+    assert!(matches!(
+        parse_command(&["window", "virtualmove", "5"]).unwrap(),
+        Command::Window(Operation::VirtualMoveTo(4, MoveFocus::Follow))
+    ));
+    assert!(matches!(
+        parse_command(&["window", "virtualsend", "5"]).unwrap(),
+        Command::Window(Operation::VirtualMoveTo(4, MoveFocus::Stay))
+    ));
+    assert!(matches!(
+        parse_command(&["window", "virtualmoveto", "5"]).unwrap(),
+        Command::Window(Operation::VirtualMoveTo(4, MoveFocus::Follow))
+    ));
+    assert!(matches!(
+        parse_command(&["window", "virtualsendto", "5"]).unwrap(),
+        Command::Window(Operation::VirtualMoveTo(4, MoveFocus::Stay))
+    ));
+    assert!(parse_command(&["window", "virtualmove", "0"]).is_err());
+    assert!(parse_command(&["window", "virtualsend", "0"]).is_err());
 }
 
 #[test]

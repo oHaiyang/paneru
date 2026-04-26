@@ -74,6 +74,8 @@ pub enum Operation {
     VirtualGoto(u32),
     /// Moves the focused window to the virtual strip.
     VirtualMove(Direction, MoveFocus),
+    /// Moves the focused window to a virtual strip by its 0-based index.
+    VirtualMoveTo(u32, MoveFocus),
 }
 
 /// Defines operations that can be performed on the mouse.

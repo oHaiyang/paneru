@@ -137,7 +137,7 @@ movement between the vertical workspaces.
 Shifting up or down goes to the previous or next strip of windows - wrapping
 around at the start or the end.
 
-Moving the last window out of the virtual row, will "collapse it".
+Moving the last window out of a regular virtual row will "collapse it". Numbered rows created by direct commands are kept so their explicit numbering remains stable.
 
 Virtual workspaces can also be navigated using trackpad gestures. If `[swipe.gesture]` is configured, a vertical 3/4-finger swipe will switch between virtual workspace rows, while horizontal swipes continue to scroll the strip as usual. For mouse users, see the `vertical_modifier` option under `[swipe.scroll]`.
 
@@ -148,6 +148,8 @@ Virtual workspaces can also be navigated using trackpad gestures. If `[swipe.ges
 | `window_virtualgoto_<number>` | Alias for `window_virtual_<number>`. |
 | `window_virtualmove_north` / `_south` | Move currently focused window to the previous/next virtual workspace and follow it. |
 | `window_virtualsend_north` / `_south` | Move currently focused window to the previous/next virtual workspace but stay on the current one. |
+| `window_virtualmove_<number>` / `window_virtualmoveto_<number>` | Move currently focused window to a numbered virtual workspace and follow it, creating it if needed. |
+| `window_virtualsend_<number>` / `window_virtualsendto_<number>` | Send currently focused window to a numbered virtual workspace but stay on the current one, creating it if needed. |
 
 
 **Example:**
@@ -158,6 +160,8 @@ window_virtual_south = "cmd + shift - j"
 window_virtual_5 = "cmd + shift - 5"
 window_virtualmove_north = "cmd + alt - k"
 window_virtualmove_south = "cmd + alt - j"
+window_virtualmove_5 = "cmd + alt - 5"
+window_virtualsend_5 = "cmd + ctrl - 5"
 ```
 
 **Example command line:**
@@ -168,6 +172,10 @@ $ paneru send-cmd window virtual north
 $ paneru send-cmd window virtual 5
 # Move the current window to the next virtual workspace.
 $ paneru send-cmd window virtualmove south
+# Move the current window to virtual workspace 5 and switch there.
+$ paneru send-cmd window virtualmove 5
+# Send the current window to virtual workspace 5 and stay here.
+$ paneru send-cmd window virtualsend 5
 ```
 
 ---

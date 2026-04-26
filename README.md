@@ -198,15 +198,17 @@ $ paneru send-cmd <command> [args...]
 | `window virtual <dir>`     | Switch to the previous/next virtual workspace     |
 | `window virtual <number>`  | Switch directly to a numbered virtual workspace   |
 | `window virtualgoto <num>` | Alias for `window virtual <number>`               |
-| `window virtualmove <dir>` | Move the window to a different virtual workspace  |
-| `window virtualsend <dir>` | Send the window to a virtual workspace but stay  |
+| `window virtualmove <dir\|num>` | Move the window to a virtual workspace and follow it |
+| `window virtualsend <dir\|num>` | Send the window to a virtual workspace but stay  |
+| `window virtualmoveto <num>` | Alias for `window virtualmove <number>`           |
+| `window virtualsendto <num>` | Alias for `window virtualsend <number>`           |
 | `window snap`              | Snap the focused window into the visible viewport |
 | `mouse nextdisplay`        | Warp the mouse pointer to the next display       |
 | `printstate`               | Print the internal ECS state to the debug log    |
 | `quit`                     | Quit Paneru                                      |
 
 Where `<direction>` is one of: `west`, `east`, `north`, `south`, `first`, `last`.
-Virtual workspace numbers are 1-based; missing numbered rows are created empty.
+Virtual workspace numbers are 1-based; missing numbered rows are created as needed.
 
 #### Examples
 

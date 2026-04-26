@@ -1,12 +1,13 @@
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
 
-use crate::commands::{Command, Direction, Operation};
+use crate::commands::{Command, Direction, MoveFocus, Operation};
 use crate::config::{Config, MainOptions, WindowParams};
 use crate::ecs::layout::LayoutStrip;
 use crate::ecs::{ActiveWorkspaceMarker, SpawnWindowTrigger};
 use crate::events::Event;
 use crate::manager::{Origin, Size, Window};
+use crate::platform::WinID;
 use crate::{assert_focused, assert_window_at, assert_window_size};
 
 use super::*;
@@ -25,6 +26,16 @@ fn virtual_row_exists(world: &mut World, virtual_index: u32) -> bool {
     let mut query = world.query::<&LayoutStrip>();
     query.iter(world).any(|strip| {
         strip.id() == TEST_WORKSPACE_ID && strip.virtual_index == virtual_index && strip.len() == 0
+    })
+}
+
+fn virtual_row_has_window(world: &mut World, virtual_index: u32, window_id: WinID) -> bool {
+    let window_entity = find_window_entity(window_id, world);
+    let mut query = world.query::<&LayoutStrip>();
+    query.iter(world).any(|strip| {
+        strip.id() == TEST_WORKSPACE_ID
+            && strip.virtual_index == virtual_index
+            && strip.index_of(window_entity).is_ok()
     })
 }
 
@@ -102,6 +113,58 @@ fn test_virtual_goto_workspace() {
         .on_iteration(2, |world| {
             assert_eq!(active_virtual_index(world), 0);
             assert!(virtual_row_exists(world, 4));
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_virtual_move_to_workspace_follow() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::VirtualMoveTo(4, MoveFocus::Follow)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::VirtualGoto(0)),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(2)
+        .on_iteration(1, |world| {
+            assert_eq!(active_virtual_index(world), 4);
+            assert!(virtual_row_has_window(world, 4, 1));
+            assert_focused!(world, 1);
+        })
+        .on_iteration(2, |world| {
+            assert_eq!(active_virtual_index(world), 0);
+            assert!(virtual_row_has_window(world, 4, 1));
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_virtual_send_to_workspace_stays() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::VirtualMoveTo(4, MoveFocus::Stay)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::VirtualGoto(4)),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(3)
+        .on_iteration(1, |world| {
+            assert_eq!(active_virtual_index(world), 0);
+            assert!(virtual_row_has_window(world, 4, 2));
+        })
+        .on_iteration(2, |world| {
+            assert_eq!(active_virtual_index(world), 4);
+            assert!(virtual_row_has_window(world, 4, 2));
+            assert_focused!(world, 2);
         })
         .run(commands);
 }
