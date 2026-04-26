@@ -25,6 +25,7 @@ use crate::ecs::{
 use crate::events::Event;
 use crate::manager::{Application, Display, Origin, Size, Window, WindowManager, origin_from};
 use crate::platform::WorkspaceId;
+use crate::scratchpad::{ScratchpadState, ScratchpadWindowMarker};
 
 /// Represents a cardinal or directional choice for window manipulation.
 #[derive(Clone, Debug)]
@@ -334,6 +335,8 @@ fn nearest_float_in_direction(
 fn command_move_focus(
     mut messages: MessageReader<Event>,
     windows: Windows,
+    scratchpad_state: Res<ScratchpadState>,
+    scratchpad_windows: Query<(), With<ScratchpadWindowMarker>>,
     workspaces: Query<(&LayoutStrip, Entity, Option<&NativeFullscreenMarker>)>,
     active_display: ActiveDisplay,
     window_manager: Res<WindowManager>,
@@ -344,6 +347,10 @@ fn command_move_focus(
     else {
         return;
     };
+
+    if scratchpad_has_focus(&windows, &scratchpad_state, &scratchpad_windows) {
+        return;
+    }
 
     let active_strip = active_display.active_strip();
 
@@ -653,6 +660,8 @@ fn command_toggle_floating_layer(
 fn command_swap_focus(
     mut messages: MessageReader<Event>,
     windows: Windows,
+    scratchpad_state: Res<ScratchpadState>,
+    scratchpad_windows: Query<(), With<ScratchpadWindowMarker>>,
     mut active_display: ActiveDisplayMut,
     mut commands: Commands,
 ) {
@@ -661,6 +670,10 @@ fn command_swap_focus(
     else {
         return;
     };
+
+    if scratchpad_has_focus(&windows, &scratchpad_state, &scratchpad_windows) {
+        return;
+    }
 
     let active_strip = active_display.active_strip();
     let mut handler = || {
@@ -726,6 +739,17 @@ fn command_swap_focus(
             }));
         }
     }
+}
+
+fn scratchpad_has_focus(
+    windows: &Windows,
+    state: &ScratchpadState,
+    scratchpad_windows: &Query<(), With<ScratchpadWindowMarker>>,
+) -> bool {
+    state.is_visible()
+        && windows
+            .focused()
+            .is_some_and(|(_, entity)| scratchpad_windows.get(entity).is_ok())
 }
 
 /// Centers the focused window on the active display.
