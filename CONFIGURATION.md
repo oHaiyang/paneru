@@ -118,6 +118,10 @@ Format: `"[modifiers-]key"`. Available modifiers are:
 | `window_nextdisplaysend` | Move focused window to the next monitor but stay on current. |
 | `mouse_nextdisplay` | Warp mouse cursor to the next monitor. |
 | `window_snap` | Snap an overflowing window into the viewport. |
+| `window_scratchpad` | Toggle the focused window in the global scratchpad. |
+| `scratchpad` / `scratchpad_toggle` | Show or hide the global scratchpad. |
+| `scratchpad_show` | Show the global scratchpad. |
+| `scratchpad_hide` | Hide the global scratchpad. |
 | `quit` | Exit Paneru. |
 
 **Example:**
@@ -176,6 +180,35 @@ $ paneru send-cmd window virtualmove south
 $ paneru send-cmd window virtualmove 5
 # Send the current window to virtual workspace 5 and stay here.
 $ paneru send-cmd window virtualsend 5
+```
+
+### Scratchpad (Experimental)
+
+The scratchpad is a single global floating area for Paneru-managed windows. It
+does not create a native macOS workspace and it does not participate in the
+normal virtual workspace rows. Windows placed in it are laid out horizontally in
+a centered floating region with a semi-transparent background mask.
+
+Switching Paneru virtual workspaces hides the scratchpad automatically. Calling
+`scratchpad toggle` on any virtual workspace shows the same scratchpad windows
+over the currently active row.
+
+**Example:**
+```toml
+[bindings]
+window_scratchpad = "cmd + shift - return"
+scratchpad_toggle = "cmd - grave"
+scratchpad_hide = "cmd + shift - grave"
+```
+
+**Example command line:**
+```shell
+# Move the focused window into or out of the scratchpad.
+$ paneru send-cmd window scratchpad
+# Show or hide the scratchpad.
+$ paneru send-cmd scratchpad toggle
+# Explicitly hide it.
+$ paneru send-cmd scratchpad hide
 ```
 
 ---

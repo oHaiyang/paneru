@@ -18,7 +18,9 @@ use tracing::{error, info, warn};
 use self::decorations::BorderRadiusOption;
 use self::swipe::SwipeGestureDirection;
 use crate::{
-    commands::{Command, Direction, MouseMove, MoveFocus, Operation, ResizeDirection},
+    commands::{
+        Command, Direction, MouseMove, MoveFocus, Operation, ResizeDirection, ScratchpadAction,
+    },
     platform::{Modifiers, OSStatus, macos_major_version},
 };
 use crate::{
@@ -232,6 +234,7 @@ fn parse_operation(argv: &[&str]) -> Result<Operation> {
             parse_virtual_index(argv.get(1).ok_or(err)?)?,
             MoveFocus::Stay,
         ),
+        "scratchpad" => Operation::Scratchpad,
         _ => {
             return Err(err);
         }
@@ -257,6 +260,25 @@ fn parse_mouse_move(argv: &[&str]) -> Result<MouseMove> {
     Ok(out)
 }
 
+fn parse_scratchpad_action(argv: &[&str]) -> Result<ScratchpadAction> {
+    let empty = "";
+    let cmd = *argv.first().unwrap_or(&empty);
+    let err = Error::InvalidConfig(format!(
+        "{}: Invalid scratchpad command '{argv:?}'",
+        function_name!()
+    ));
+
+    let out = match cmd {
+        "" | "toggle" => ScratchpadAction::Toggle,
+        "show" => ScratchpadAction::Show,
+        "hide" => ScratchpadAction::Hide,
+        _ => {
+            return Err(err);
+        }
+    };
+    Ok(out)
+}
+
 /// Parses a command argument vector into a `Command` enum.
 ///
 /// # Arguments
@@ -273,6 +295,7 @@ pub fn parse_command(argv: &[&str]) -> Result<Command> {
     let out = match cmd {
         "printstate" => Command::PrintState,
         "window" => Command::Window(parse_operation(&argv[1..])?),
+        "scratchpad" => Command::Scratchpad(parse_scratchpad_action(&argv[1..])?),
         "mouse" => Command::Mouse(parse_mouse_move(&argv[1..])?),
         "quit" => Command::Quit,
         _ => {
@@ -787,15 +810,7 @@ impl InnerConfig {
             for binding in bindings.all_mut() {
                 binding.command = parse_command(&argv)?;
 
-                let code = virtual_keys
-                    .iter()
-                    .find(|(key, _)| key == &binding.key)
-                    .map(|(_, code)| *code)
-                    .or_else(|| {
-                        literal_keycode()
-                            .find(|(key, _)| key == &binding.key)
-                            .map(|(_, code)| *code)
-                    });
+                let code = keycode_for_key_name(&binding.key, &virtual_keys);
                 if let Some(code) = code {
                     binding.code = code;
                 } else {
@@ -1035,16 +1050,20 @@ fn resolve_keybinding_str(input: &str, virtual_keys: &[(String, u8)]) -> Result<
         )));
     }
 
-    let code = virtual_keys
+    let code = keycode_for_key_name(key, virtual_keys).ok_or_else(|| {
+        Error::InvalidConfig(format!("Unknown key '{key}' in keybinding: {input:?}"))
+    })?;
+
+    Ok((code, modifiers))
+}
+
+fn keycode_for_key_name(key: &str, virtual_keys: &[(String, u8)]) -> Option<u8> {
+    virtual_keys
         .iter()
         .find(|(k, _)| k == key)
         .map(|(_, c)| *c)
+        .or_else(|| virtual_keycode().find(|(k, _)| *k == key).map(|(_, c)| *c))
         .or_else(|| literal_keycode().find(|(k, _)| *k == key).map(|(_, c)| *c))
-        .ok_or_else(|| {
-            Error::InvalidConfig(format!("Unknown key '{key}' in keybinding: {input:?}"))
-        })?;
-
-    Ok((code, modifiers))
 }
 
 /// Parses a string containing modifier names (e.g., "alt", "shift", "cmd", "ctrl") separated by "+", and returns their combined bitmask.
@@ -1555,6 +1574,52 @@ fn test_parse_virtual_move_to_commands() {
     ));
     assert!(parse_command(&["window", "virtualmove", "0"]).is_err());
     assert!(parse_command(&["window", "virtualsend", "0"]).is_err());
+}
+
+#[test]
+fn test_parse_scratchpad_commands() {
+    assert!(matches!(
+        parse_command(&["window", "scratchpad"]).unwrap(),
+        Command::Window(Operation::Scratchpad)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Toggle)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad", "toggle"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Toggle)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad", "show"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Show)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad", "hide"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Hide)
+    ));
+    assert!(parse_command(&["scratchpad", "term"]).is_err());
+}
+
+#[test]
+fn test_static_virtual_key_names_can_be_bound() {
+    let config = Config::try_from(
+        r#"
+[options]
+
+[bindings]
+window_grow = "alt - minus"
+"#,
+    )
+    .unwrap();
+    let minus_keycode = virtual_keycode()
+        .find_map(|(key, code)| (*key == "minus").then_some(*code))
+        .unwrap();
+
+    assert!(matches!(
+        config.find_keybind(minus_keycode, Modifiers::ALT),
+        Some(Command::Window(Operation::Resize(ResizeDirection::Grow)))
+    ));
 }
 
 #[test]

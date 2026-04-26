@@ -14,6 +14,7 @@ use crate::ecs::{
     ActiveWorkspaceMarker, Scrolling, SelectedVirtualMarker, reposition_entity, reshuffle_around,
 };
 use crate::manager::{Application, Window, WindowManager};
+use crate::scratchpad::ScratchpadWindowMarker;
 
 #[derive(BevyEvent)]
 pub(super) struct FocusWindow {
@@ -54,6 +55,7 @@ pub(super) fn maintain_focus_singleton(
 pub(super) fn autocenter_window_on_focus(
     focused: Single<Entity, Added<FocusedMarker>>,
     mouse_held: Query<&MouseHeldMarker>,
+    scratchpad_windows: Query<(), With<ScratchpadWindowMarker>>,
     windows: Windows,
     config: Configuration,
     active_display: ActiveDisplay,
@@ -62,6 +64,9 @@ pub(super) fn autocenter_window_on_focus(
     let entity = *focused;
 
     if config.skip_reshuffle() || config.initializing() || !mouse_held.is_empty() {
+        return;
+    }
+    if scratchpad_windows.get(entity).is_ok() {
         return;
     }
     if config.auto_center()

@@ -1,13 +1,14 @@
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
 
-use crate::commands::{Command, Direction, MoveFocus, Operation};
+use crate::commands::{Command, Direction, MoveFocus, Operation, ScratchpadAction};
 use crate::config::{Config, MainOptions, WindowParams};
 use crate::ecs::layout::LayoutStrip;
 use crate::ecs::{ActiveWorkspaceMarker, SpawnWindowTrigger};
 use crate::events::Event;
 use crate::manager::{Origin, Size, Window};
 use crate::platform::WinID;
+use crate::scratchpad::{ScratchpadState, ScratchpadWindowMarker};
 use crate::{assert_focused, assert_window_at, assert_window_size};
 
 use super::*;
@@ -37,6 +38,14 @@ fn virtual_row_has_window(world: &mut World, virtual_index: u32, window_id: WinI
             && strip.virtual_index == virtual_index
             && strip.index_of(window_entity).is_ok()
     })
+}
+
+fn scratchpad_contains_window(world: &mut World, window_id: WinID) -> bool {
+    let window_entity = find_window_entity(window_id, world);
+    world.resource::<ScratchpadState>().contains(window_entity)
+        && world
+            .entity(window_entity)
+            .contains::<ScratchpadWindowMarker>()
 }
 
 #[test]
@@ -165,6 +174,96 @@ fn test_virtual_send_to_workspace_stays() {
             assert_eq!(active_virtual_index(world), 4);
             assert!(virtual_row_has_window(world, 4, 2));
             assert_focused!(world, 2);
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_window_scratchpad_moves_focused_window_to_floating_scratchpad() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(2)
+        .on_iteration(1, |world| {
+            assert_eq!(active_virtual_index(world), 0);
+            assert!(scratchpad_contains_window(world, 1));
+            assert!(!virtual_row_has_window(world, 0, 1));
+            assert!(world.resource::<ScratchpadState>().is_visible());
+            assert_focused!(world, 1);
+            assert_window_at!(world, 1, 103, 132);
+            assert_window_size!(world, 1, 819, 524);
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_scratchpad_can_hold_multiple_windows() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+        Event::Command {
+            command: Command::Scratchpad(ScratchpadAction::Hide),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(3)
+        .on_iteration(3, |world| {
+            assert_eq!(world.resource::<ScratchpadState>().window_count(), 2);
+            assert!(world.resource::<ScratchpadState>().is_visible());
+            assert!(scratchpad_contains_window(world, 2));
+            assert!(scratchpad_contains_window(world, 1));
+            assert_focused!(world, 1);
+            assert_window_at!(world, 2, 103, 132);
+            assert_window_size!(world, 2, 403, 524);
+            assert_window_at!(world, 1, 518, 132);
+            assert_window_size!(world, 1, 404, 524);
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_virtual_workspace_switch_hides_scratchpad_without_moving_it_between_rows() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+        Event::Command {
+            command: Command::Window(Operation::VirtualGoto(4)),
+        },
+        Event::Command {
+            command: Command::Scratchpad(ScratchpadAction::Toggle),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(2)
+        .on_iteration(1, |world| {
+            assert!(world.resource::<ScratchpadState>().is_visible());
+            assert_eq!(active_virtual_index(world), 0);
+        })
+        .on_iteration(2, |world| {
+            assert!(!world.resource::<ScratchpadState>().is_visible());
+            assert_eq!(active_virtual_index(world), 4);
+            assert!(scratchpad_contains_window(world, 1));
+            assert!(!virtual_row_has_window(world, 4, 1));
+        })
+        .on_iteration(3, |world| {
+            assert!(world.resource::<ScratchpadState>().is_visible());
+            assert_eq!(active_virtual_index(world), 4);
+            assert_window_at!(world, 1, 103, 132);
+            assert_window_size!(world, 1, 819, 524);
         })
         .run(commands);
 }

@@ -22,6 +22,7 @@ use crate::errors::Result;
 use crate::events::Event;
 use crate::manager::{Application, Display, Origin, Window, WindowManager};
 use crate::platform::{WinID, WorkspaceId};
+use crate::scratchpad::ScratchpadWindowMarker;
 
 /// Marker component to move a window to a specific virtual index on its current workspace.
 #[derive(Component)]
@@ -132,6 +133,7 @@ pub(super) fn workspace_change_trigger(
 pub(super) fn detect_moved_windows(
     activated_workspace: Single<Entity, Added<ActiveWorkspaceMarker>>,
     windows: Windows,
+    scratchpad_windows: Query<(), With<ScratchpadWindowMarker>>,
     mut workspaces: Query<(&mut LayoutStrip, Entity, Has<NativeFullscreenMarker>)>,
     apps: Query<&mut Application>,
     window_manager: Res<WindowManager>,
@@ -150,7 +152,11 @@ pub(super) fn detect_moved_windows(
         .iter()
         .filter_map(|strip| (strip.0.id() == workspace_id).then_some(strip.0))
         .collect::<Vec<_>>();
-    let find_window = |window_id| windows.find_managed(window_id).map(|(_, entity)| entity);
+    let find_window = |window_id| {
+        windows
+            .find_managed(window_id)
+            .and_then(|(_, entity)| scratchpad_windows.get(entity).is_err().then_some(entity))
+    };
     let Ok((moved_windows, mut unresolved)) =
         windows_not_in_strips(workspace_id, find_window, &strips, &window_manager).inspect_err(
             |err| {

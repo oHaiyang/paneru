@@ -331,6 +331,63 @@ impl OverlayManager {
     }
 }
 
+// ── ScratchpadOverlayManager ────────────────────────────────────────────
+
+pub struct ScratchpadOverlayManager {
+    mtm: MainThreadMarker,
+    overlay: Option<(Retained<NSWindow>, DimParams)>,
+}
+
+impl ScratchpadOverlayManager {
+    pub fn new(mtm: MainThreadMarker) -> Self {
+        Self { mtm, overlay: None }
+    }
+
+    pub fn update(&mut self, scratchpad_abs_cg: Option<NSRect>) {
+        let screen_h = primary_screen_height(self.mtm);
+        let screen_rect = full_screen_rect(self.mtm);
+        let cutout_local = scratchpad_abs_cg.map(|cg_frame| {
+            let cocoa = cg_abs_to_cocoa(cg_frame, screen_h);
+            NSRect::new(
+                NSPoint::new(
+                    cocoa.origin.x - screen_rect.origin.x,
+                    (screen_rect.origin.y + screen_rect.size.height)
+                        - (cocoa.origin.y + cocoa.size.height),
+                ),
+                cocoa.size,
+            )
+        });
+        let params = DimParams {
+            opacity: 0.25,
+            color: (0.0, 0.0, 0.0),
+            cutout: cutout_local,
+            border: None,
+        };
+
+        if let Some((window, stored)) = &mut self.overlay {
+            if *stored != params {
+                let view = DimView::new(self.mtm, screen_rect, &params);
+                window.setContentView(Some(&view));
+                window.setFrame_display(screen_rect, true);
+            }
+            window.orderFront(None::<&AnyObject>);
+            *stored = params;
+        } else {
+            let window = make_overlay_window(self.mtm, screen_rect);
+            let view = DimView::new(self.mtm, screen_rect, &params);
+            window.setContentView(Some(&view));
+            window.orderFront(None::<&AnyObject>);
+            self.overlay = Some((window, params));
+        }
+    }
+
+    pub fn remove(&mut self) {
+        if let Some((window, _)) = self.overlay.take() {
+            window.orderOut(None::<&AnyObject>);
+        }
+    }
+}
+
 // ── FlashMessage ────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]

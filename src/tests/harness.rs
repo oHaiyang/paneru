@@ -17,6 +17,7 @@ use crate::events::Event;
 use crate::manager::{Application, Origin, Size, Window, WindowManager, WindowManagerApi};
 use crate::platform::ProcessSerialNumber;
 use crate::platform::WinID;
+use crate::scratchpad::ScratchpadState;
 
 use super::mocks::{MockApplication, MockProcess, MockWindow, MockWindowManager};
 use super::*;
@@ -126,6 +127,7 @@ pub(crate) fn setup_world() -> App {
         .insert_resource(MissionControlActive(false))
         .insert_resource(FocusFollowsMouse(None))
         .insert_resource(Config::default())
+        .init_resource::<ScratchpadState>()
         .insert_resource(Initializing)
         .add_plugins((register_triggers, register_systems, register_commands));
 

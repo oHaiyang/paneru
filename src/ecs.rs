@@ -29,8 +29,9 @@ use crate::manager::{
     Application, Origin, ProcessApi, Size, Window, WindowManager, WindowManagerApi, WindowManagerOS,
 };
 use crate::menubar::MenuBarManager;
-use crate::overlay::{FlashMessageManager, OverlayManager};
+use crate::overlay::{FlashMessageManager, OverlayManager, ScratchpadOverlayManager};
 use crate::platform::{Modifiers, PlatformCallbacks, WinID, WorkspaceId};
+use crate::scratchpad::ScratchpadState;
 
 mod focus;
 pub mod layout;
@@ -62,6 +63,7 @@ pub fn register_systems(app: &mut bevy::app::App) {
         (
             systems::dispatch_toplevel_triggers,
             systems::pump_events,
+            crate::scratchpad::scratchpad_command_handler,
             workspace::switch_virtual_workspace_bind,
             workspace::goto_virtual_workspace_bind,
             workspace::move_virtual_workspace_bind,
@@ -89,8 +91,12 @@ pub fn register_systems(app: &mut bevy::app::App) {
             systems::displays_rearranged,
             systems::reposition_dragged_window,
             workspace::show_active_workspace,
+            crate::scratchpad::hide_scratchpad_on_virtual_workspace_change,
             workspace::cleanup_virtual_workspaces,
             workspace::handle_virtual_window_moves,
+            crate::scratchpad::prune_scratchpad_windows,
+            crate::scratchpad::remember_focused_scratchpad_window,
+            crate::scratchpad::position_scratchpad_windows,
             workspace::detect_moved_windows.run_if(not(resource_exists::<Initializing>)),
             workspace::find_orphaned_workspaces
                 .after(systems::displays_rearranged)
@@ -155,6 +161,7 @@ pub fn register_systems(app: &mut bevy::app::App) {
                 systems::update_flash_messages,
             )
                 .chain(),
+            crate::scratchpad::update_scratchpad_overlay,
             crate::menubar::update_virtual_workspace_status_item,
             focus::autocenter_window_on_focus.after(systems::animate_resize_entities),
             focus::mouse_follows_focus.after(systems::animate_resize_entities),
@@ -475,6 +482,7 @@ pub fn setup_bevy_app(sender: EventSender, receiver: Receiver<Event>) -> Result<
         })
         .insert_resource(MissionControlActive(false))
         .insert_resource(FocusFollowsMouse(None))
+        .init_resource::<ScratchpadState>()
         .insert_resource(PollForNotifications)
         .insert_resource(Initializing)
         .insert_non_send_resource(watcher)
@@ -486,10 +494,12 @@ pub fn setup_bevy_app(sender: EventSender, receiver: Receiver<Event>) -> Result<
     let overlay_manager = OverlayManager::new(mtm);
     let flash_message_manager = FlashMessageManager::new(mtm);
     let menu_bar_manager = MenuBarManager::new(mtm);
+    let scratchpad_overlay_manager = ScratchpadOverlayManager::new(mtm);
     app.insert_non_send_resource(platform_callbacks);
     app.insert_non_send_resource(overlay_manager);
     app.insert_non_send_resource(flash_message_manager);
     app.insert_non_send_resource(menu_bar_manager);
+    app.insert_non_send_resource(scratchpad_overlay_manager);
     app.insert_non_send_resource(receiver);
 
     Ok(app)

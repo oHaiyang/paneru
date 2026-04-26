@@ -76,6 +76,15 @@ pub enum Operation {
     VirtualMove(Direction, MoveFocus),
     /// Moves the focused window to a virtual strip by its 0-based index.
     VirtualMoveTo(u32, MoveFocus),
+    /// Toggles the focused window's membership in the global scratchpad.
+    Scratchpad,
+}
+
+#[derive(Clone, Debug)]
+pub enum ScratchpadAction {
+    Toggle,
+    Show,
+    Hide,
 }
 
 /// Defines operations that can be performed on the mouse.
@@ -90,6 +99,8 @@ pub enum MouseMove {
 pub enum Command {
     /// A command targeting a window with a specific `Operation`.
     Window(Operation),
+    /// A command targeting the global scratchpad.
+    Scratchpad(ScratchpadAction),
     /// A command targeting the mouse with a specific `MouseOperation`.
     Mouse(MouseMove),
     /// A command to quit the window manager application.

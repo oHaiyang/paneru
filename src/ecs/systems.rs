@@ -39,6 +39,7 @@ use crate::manager::{
 };
 use crate::overlay::{FlashMessageManager, OverlayManager};
 use crate::platform::{PlatformCallbacks, WorkspaceId};
+use crate::scratchpad::ScratchpadState;
 
 const ORPHANED_SPACES_TIMEOUT_SEC: u64 = 30;
 
@@ -1073,6 +1074,7 @@ pub(super) fn update_overlays(
     active_workspace: Query<(Has<Scrolling>, &LayoutStrip), With<ActiveWorkspaceMarker>>,
     overlay_mgr: Option<NonSendMut<OverlayManager>>,
     config: Configuration,
+    scratchpad_state: Option<Res<ScratchpadState>>,
 ) {
     use crate::overlay::BorderParams;
     use objc2_foundation::{NSPoint, NSRect, NSSize};
@@ -1083,6 +1085,11 @@ pub(super) fn update_overlays(
 
     let dim_opacity = config.config().dim_inactive_opacity();
     let border_enabled = config.config().border_active_window();
+
+    if scratchpad_state.is_some_and(|state| state.is_visible()) {
+        overlay_mgr.hide_all();
+        return;
+    }
 
     // Hide overlays during swipe, mission control, native fullscreen spaces,
     // or briefly after a space change (macOS space-switch animation).
