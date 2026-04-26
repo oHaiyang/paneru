@@ -158,6 +158,10 @@ https://github.com/karinushka/paneru/blob/3790b01f8d65df5d9000142db7cf25f9270dcc
 | `window_snap` | Snap an overflowing window into the viewport. |
 | `window_raise_floating` | Make the floating windows layer visible on the current workspace. |
 | `window_togglefloatlayer` | Selectively move the floating windows in front or behind of the workspace windows. |
+| `window_scratchpad` | Toggle the focused window in the global scratchpad. |
+| `scratchpad` / `scratchpad_toggle` | Show or hide the global scratchpad. |
+| `scratchpad_show` | Show the global scratchpad. |
+| `scratchpad_hide` | Hide the global scratchpad. |
 | `quit` | Exit Paneru. |
 | `restart` | Restart the Paneru service (`paneru restart`). |
 
@@ -226,6 +230,34 @@ $ paneru send-cmd window virtualsendnum 3
 
 See [QUERY_AND_SUBSCRIBE_FORMAT.md](QUERY_AND_SUBSCRIBE_FORMAT.md) for the
 structured `paneru query` responses and `paneru subscribe` event stream.
+### Scratchpad (Experimental)
+
+The scratchpad is a single global floating area for Paneru-managed windows. It
+does not create a native macOS workspace and it does not participate in the
+normal virtual workspace rows. Windows placed in it are laid out horizontally in
+a centered floating region with a semi-transparent background mask.
+
+Switching Paneru virtual workspaces hides the scratchpad automatically. Calling
+`scratchpad toggle` on any virtual workspace shows the same scratchpad windows
+over the currently active row.
+
+**Example:**
+```toml
+[bindings]
+window_scratchpad = "cmd + shift - return"
+scratchpad_toggle = "cmd - grave"
+scratchpad_hide = "cmd + shift - grave"
+```
+
+**Example command line:**
+```shell
+# Move the focused window into or out of the scratchpad.
+$ paneru send-cmd window scratchpad
+# Show or hide the scratchpad.
+$ paneru send-cmd scratchpad toggle
+# Explicitly hide it.
+$ paneru send-cmd scratchpad hide
+```
 
 ---
 

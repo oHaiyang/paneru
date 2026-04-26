@@ -23,6 +23,7 @@ use crate::ecs::{
 };
 use crate::events::Event;
 use crate::manager::{Application, Display, Window, WindowManager};
+use crate::scratchpad::ScratchpadWindowMarker;
 use crate::platform::WorkspaceId;
 
 const REFRESH_WINDOW_CHECK_FREQ_MS: u64 = 1000;
@@ -148,6 +149,7 @@ fn maintain_focus_singleton(
 fn autocenter_window_on_focus(
     focused: Single<Entity, Added<FocusedMarker>>,
     mouse_held: Query<&MouseHeldMarker>,
+    scratchpad_windows: Query<(), With<ScratchpadWindowMarker>>,
     windows: Windows,
     global_state: GlobalState,
     active_display: ActiveDisplay,
@@ -160,6 +162,9 @@ fn autocenter_window_on_focus(
         return;
     }
     if active_display.active_strip().tabbed(entity) {
+        return;
+    }
+    if scratchpad_windows.get(entity).is_ok() {
         return;
     }
     if config.auto_center()

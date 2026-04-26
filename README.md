@@ -234,6 +234,10 @@ $ paneru send-cmd <command> [args...]
 | `window virtualmovenum <n>` | Move the window to numbered virtual workspace and follow it |
 | `window virtualsend <dir>` | Send the window to a virtual workspace but stay  |
 | `window virtualsendnum <n>` | Send the window to numbered virtual workspace but stay |
+| `window scratchpad`       | Toggle the focused window in the global scratchpad |
+| `scratchpad toggle`       | Show or hide the global scratchpad                |
+| `scratchpad show`         | Show the global scratchpad                        |
+| `scratchpad hide`         | Hide the global scratchpad                        |
 | `window snap`              | Snap the focused window into the visible viewport |
 | `mouse nextdisplay`        | Warp the mouse pointer to the next display       |
 | `printstate`               | Print the internal ECS state to the debug log    |
@@ -242,6 +246,9 @@ $ paneru send-cmd <command> [args...]
 
 Where `<direction>` is one of: `west`, `east`, `north`, `south`, `first`, `last`.
 Window numbers are 1-based and count columns from left to right.
+The scratchpad is global across Paneru virtual workspaces. Switching virtual
+workspaces hides it automatically; calling `scratchpad toggle` shows the same
+scratchpad windows over the current virtual workspace.
 
 #### Examples
 
@@ -272,6 +279,10 @@ $ paneru send-cmd window virtualnum 3
 
 # Send the focused window to virtual workspace 3 without following it.
 $ paneru send-cmd window virtualsendnum 3
+
+# Move the focused window into the scratchpad, then show/hide it.
+$ paneru send-cmd window scratchpad
+$ paneru send-cmd scratchpad toggle
 ```
 
 ### Querying and Subscribing to State

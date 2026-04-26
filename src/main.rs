@@ -17,6 +17,7 @@ mod menubar;
 mod overlay;
 mod platform;
 mod reader;
+mod scratchpad;
 mod util;
 
 #[cfg(test)]

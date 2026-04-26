@@ -23,6 +23,7 @@ use crate::ecs::{
 use crate::events::Event;
 use crate::manager::{Window, WindowManager};
 use crate::platform::{Pid, WinID, WorkspaceId};
+use crate::scratchpad::ScratchpadState;
 
 use super::*;
 
@@ -226,6 +227,7 @@ fn setup_world() -> App {
         .insert_resource(MissionControlActive(false))
         .insert_resource(FocusFollowsMouse(None))
         .insert_resource(Config::default())
+        .init_resource::<ScratchpadState>()
         .insert_resource(Initializing)
         .add_plugins(MouseEventsPlugin)
         .add_plugins(ScrollEventsPlugin)

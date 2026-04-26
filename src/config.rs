@@ -20,7 +20,9 @@ use tracing::{error, info, warn};
 use self::decorations::BorderRadiusOption;
 use self::swipe::SwipeGestureDirection;
 use crate::{
-    commands::{Command, Direction, MouseMove, MoveFocus, Operation, ResizeDirection},
+    commands::{
+        Command, Direction, MouseMove, MoveFocus, Operation, ResizeDirection, ScratchpadAction,
+    },
     manager::ProcessApi,
     platform::{Modifiers, OSStatus, macos_major_version},
 };
@@ -315,6 +317,7 @@ fn parse_operation(argv: &[&str]) -> Result<Operation> {
             parse_virtual_workspace_number(argv.get(1).ok_or(err)?)?,
             MoveFocus::Stay,
         ),
+        "scratchpad" => Operation::Scratchpad,
         _ => {
             return Err(err);
         }
@@ -340,6 +343,25 @@ fn parse_mouse_move(argv: &[&str]) -> Result<MouseMove> {
     Ok(out)
 }
 
+fn parse_scratchpad_action(argv: &[&str]) -> Result<ScratchpadAction> {
+    let empty = "";
+    let cmd = *argv.first().unwrap_or(&empty);
+    let err = Error::InvalidConfig(format!(
+        "{}: Invalid scratchpad command '{argv:?}'",
+        function_name!()
+    ));
+
+    let out = match cmd {
+        "" | "toggle" => ScratchpadAction::Toggle,
+        "show" => ScratchpadAction::Show,
+        "hide" => ScratchpadAction::Hide,
+        _ => {
+            return Err(err);
+        }
+    };
+    Ok(out)
+}
+
 /// Parses a command argument vector into a `Command` enum.
 ///
 /// # Arguments
@@ -356,6 +378,7 @@ pub fn parse_command(argv: &[&str]) -> Result<Command> {
     let out = match cmd {
         "printstate" => Command::PrintState,
         "window" => Command::Window(parse_operation(&argv[1..])?),
+        "scratchpad" => Command::Scratchpad(parse_scratchpad_action(&argv[1..])?),
         "mouse" => Command::Mouse(parse_mouse_move(&argv[1..])?),
         "quit" => Command::Quit,
         "restart" => Command::Restart,
@@ -1911,6 +1934,52 @@ fn test_parse_absolute_virtual_workspace_commands() {
 }
 
 #[test]
+fn test_parse_scratchpad_commands() {
+    assert!(matches!(
+        parse_command(&["window", "scratchpad"]).unwrap(),
+        Command::Window(Operation::Scratchpad)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Toggle)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad", "toggle"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Toggle)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad", "show"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Show)
+    ));
+    assert!(matches!(
+        parse_command(&["scratchpad", "hide"]).unwrap(),
+        Command::Scratchpad(ScratchpadAction::Hide)
+    ));
+    assert!(parse_command(&["scratchpad", "term"]).is_err());
+}
+
+#[test]
+fn test_static_virtual_key_names_can_be_bound() {
+    let config = Config::try_from(
+        r#"
+[options]
+
+[bindings]
+window_grow = "alt - minus"
+"#,
+    )
+    .unwrap();
+    let minus_keycode = virtual_keycode()
+        .find_map(|(key, code)| (*key == "minus").then_some(*code))
+        .unwrap();
+
+    assert!(matches!(
+        config.find_keybind(minus_keycode, Modifiers::ALT),
+        Some(Command::Window(Operation::Resize(ResizeDirection::Grow)))
+    ));
+}
+
+#[test]
 #[allow(clippy::float_cmp)]
 fn test_grid_ratios() {
     use regex::Regex;
@@ -2121,25 +2190,4 @@ missing_windows = "reserve"
     .expect_err("unsupported restore missing-window policy should fail");
 
     assert!(err.to_string().contains("unknown variant"));
-}
-
-#[test]
-fn test_static_virtual_key_names_can_be_bound() {
-    let config = Config::try_from(
-        r#"
-[options]
-
-[bindings]
-window_grow = "alt - minus"
-"#,
-    )
-    .unwrap();
-    let minus_keycode = virtual_keycode()
-        .find_map(|(key, code)| (*key == "minus").then_some(*code))
-        .unwrap();
-
-    assert!(matches!(
-        config.find_keybind(minus_keycode, Modifiers::ALT),
-        Some(Command::Window(Operation::Resize(ResizeDirection::Grow)))
-    ));
 }

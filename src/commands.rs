@@ -113,6 +113,15 @@ pub enum Operation {
     /// Flips `FloatingLayer`, raises the other windows in the new top tier,
     /// and focuses the tier's last-focused window.
     ToggleFloatingLayer,
+    /// Toggles the focused window's membership in the global scratchpad.
+    Scratchpad,
+}
+
+#[derive(Clone, Debug)]
+pub enum ScratchpadAction {
+    Toggle,
+    Show,
+    Hide,
 }
 
 /// Defines operations that can be performed on the mouse.
@@ -127,6 +136,8 @@ pub enum MouseMove {
 pub enum Command {
     /// A command targeting a window with a specific `Operation`.
     Window(Operation),
+    /// A command targeting the global scratchpad.
+    Scratchpad(ScratchpadAction),
     /// A command targeting the mouse with a specific `MouseOperation`.
     Mouse(MouseMove),
     /// A command to quit the window manager application.

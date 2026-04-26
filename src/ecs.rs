@@ -33,8 +33,9 @@ use crate::manager::{
     Application, Origin, ProcessApi, Size, Window, WindowManager, WindowManagerApi, WindowManagerOS,
 };
 use crate::menubar::MenuBarManager;
-use crate::overlay::{FlashMessageManager, OverlayManager};
+use crate::overlay::{FlashMessageManager, OverlayManager, ScratchpadOverlayManager};
 use crate::platform::{Modifiers, PlatformCallbacks, WinID, WorkspaceId};
+use crate::scratchpad::ScratchpadState;
 
 pub mod display;
 pub mod focus;
@@ -93,7 +94,11 @@ pub fn register_systems(app: &mut bevy::app::App) {
     );
     app.add_systems(
         PreUpdate,
-        (systems::window_creation_event, systems::pump_events),
+        (
+            systems::window_creation_event,
+            systems::pump_events,
+            crate::scratchpad::scratchpad_command_handler,
+        ),
     );
     app.add_systems(
         Update,
@@ -125,6 +130,10 @@ pub fn register_systems(app: &mut bevy::app::App) {
             )
                 .chain()
                 .run_if(not_swiping),
+            crate::scratchpad::hide_scratchpad_on_virtual_workspace_change,
+            crate::scratchpad::prune_scratchpad_windows,
+            crate::scratchpad::remember_focused_scratchpad_window,
+            crate::scratchpad::position_scratchpad_windows,
             systems::cleanup_on_exit,
             restore::tick_restore_grace,
             state::periodic_state_save.run_if(on_timer(Duration::from_secs(300))),
@@ -155,6 +164,7 @@ pub fn register_systems(app: &mut bevy::app::App) {
             )
                 .chain(),
             crate::menubar::update_menu_bar,
+            crate::scratchpad::update_scratchpad_overlay,
         ),
     );
 }
@@ -548,6 +558,7 @@ pub fn setup_bevy_app(sender: EventSender, receiver: Receiver<Event>) -> Result<
         })
         .insert_resource(MissionControlActive(false))
         .insert_resource(FocusFollowsMouse(None))
+        .init_resource::<ScratchpadState>()
         .insert_resource(Initializing)
         .insert_non_send_resource(watcher)
         .add_plugins(mouse::MouseEventsPlugin)
@@ -565,10 +576,12 @@ pub fn setup_bevy_app(sender: EventSender, receiver: Receiver<Event>) -> Result<
     let overlay_manager = OverlayManager::new(mtm);
     let flash_message_manager = FlashMessageManager::new(mtm);
     let menu_bar_manager = MenuBarManager::new(mtm, menu_events);
+    let scratchpad_overlay_manager = ScratchpadOverlayManager::new(mtm);
     app.insert_non_send_resource(platform_callbacks)
         .insert_non_send_resource(overlay_manager)
         .insert_non_send_resource(flash_message_manager)
         .insert_non_send_resource(menu_bar_manager)
+        .insert_non_send_resource(scratchpad_overlay_manager)
         .insert_non_send_resource(receiver);
 
     if let Some(previous_state) =
