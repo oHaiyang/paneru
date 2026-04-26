@@ -30,6 +30,10 @@ pub(super) struct VirtualMoveMarker {
     pub move_focus: MoveFocus,
 }
 
+/// Keeps a manually-created numbered virtual row stable even while it is empty.
+#[derive(Component)]
+pub(super) struct PersistentVirtualMarker;
+
 #[derive(Component, Debug)]
 pub(crate) struct PreviousStripPosition {
     origin: Origin,
@@ -518,19 +522,23 @@ pub(super) fn cleanup_selected_space_marker(
 #[allow(clippy::needless_pass_by_value)]
 pub(super) fn cleanup_virtual_workspaces(
     changed: Single<Entity, Added<ActiveWorkspaceMarker>>,
-    mut strips: Populated<(Entity, &mut LayoutStrip)>,
+    mut strips: Populated<(Entity, &mut LayoutStrip, Has<PersistentVirtualMarker>)>,
     mut commands: Commands,
 ) {
     let changed_entity = *changed;
-    let Some(workspace_id) = strips.get(changed_entity).ok().map(|(_, strip)| strip.id()) else {
+    let Some(workspace_id) = strips
+        .get(changed_entity)
+        .ok()
+        .map(|(_, strip, _)| strip.id())
+    else {
         return;
     };
     debug!("cleaning up virtual workspaces on space {workspace_id}");
     let mut rows = strips
         .iter_mut()
-        .filter(|(_, strip)| strip.id() == workspace_id)
+        .filter(|(_, strip, _)| strip.id() == workspace_id)
         .collect::<Vec<_>>();
-    rows.sort_by_key(|(_, strip)| strip.virtual_index);
+    rows.sort_by_key(|(_, strip, _)| strip.virtual_index);
 
     if rows.is_empty() {
         return;
@@ -538,7 +546,15 @@ pub(super) fn cleanup_virtual_workspaces(
 
     let primary_entity = rows[0].0;
     let mut next_idx = 0;
-    for (entity, mut strip) in rows {
+    for (entity, mut strip, persistent) in rows {
+        if persistent {
+            if strip.virtual_index < next_idx {
+                strip.virtual_index = next_idx;
+            }
+            next_idx = strip.virtual_index + 1;
+            continue;
+        }
+
         if strip.virtual_index > 0 && strip.len() == 0 {
             if entity == changed_entity {
                 debug!("moving markers from despawned virtual workspace to primary");
@@ -731,6 +747,63 @@ pub(crate) fn switch_virtual_workspace_bind(
         active_display.id(),
         rows[current_index].1.virtual_index,
         rows[next_index].1.virtual_index
+    );
+}
+
+/// Handles jumping directly to a virtual workspace by its 0-based index.
+#[instrument(level = Level::DEBUG, skip_all)]
+#[allow(clippy::needless_pass_by_value)]
+pub(crate) fn goto_virtual_workspace_bind(
+    mut messages: MessageReader<Event>,
+    active_display: ActiveDisplay,
+    workspaces: Query<(Entity, &LayoutStrip, Has<ActiveWorkspaceMarker>)>,
+    mut commands: Commands,
+) {
+    let Some(Operation::VirtualGoto(target_index)) =
+        filter_window_operations(&mut messages, |op| matches!(op, Operation::VirtualGoto(_)))
+            .next()
+    else {
+        return;
+    };
+
+    if active_display.active_strip().virtual_index == *target_index {
+        return;
+    }
+
+    let workspace_id = active_display.active_strip().id();
+    let existing_target = workspaces
+        .iter()
+        .find(|(_, strip, _)| strip.id() == workspace_id && strip.virtual_index == *target_index);
+
+    let (new_entity, next_virtual_index) = if let Some((entity, strip, _)) = existing_target {
+        (entity, strip.virtual_index)
+    } else {
+        let new_strip = LayoutStrip::new(workspace_id, *target_index);
+        let entity = commands
+            .spawn((
+                new_strip,
+                Position(active_display.bounds().min),
+                PersistentVirtualMarker,
+                SelectedVirtualMarker,
+                ActiveWorkspaceMarker,
+                ChildOf(active_display.display_entity()),
+            ))
+            .id();
+        (entity, *target_index)
+    };
+
+    if let Ok(mut entity_commands) = commands.get_entity(new_entity) {
+        entity_commands
+            .try_insert(SelectedVirtualMarker)
+            .try_insert(ActiveWorkspaceMarker);
+
+        flash_message(format!("{}", next_virtual_index + 1), 1.0, &mut commands);
+    }
+
+    debug!(
+        "Jumped virtual workspace on display {} to {}",
+        active_display.id(),
+        next_virtual_index
     );
 }
 

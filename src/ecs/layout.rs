@@ -1387,18 +1387,18 @@ mod tests {
         // Move e2 to front (new leader)
         column.move_to_front(e2);
         assert_eq!(column.top(), Some(e2));
-        match column {
-            Column::Tabs(ref tabs) => assert_eq!(tabs, &vec![e2, e1, e3]),
-            _ => panic!(),
-        }
+        let Column::Tabs(tabs) = &column else {
+            panic!();
+        };
+        assert_eq!(tabs, &vec![e2, e1, e3]);
 
         // Move e3 to front
         column.move_to_front(e3);
         assert_eq!(column.top(), Some(e3));
-        match column {
-            Column::Tabs(ref tabs) => assert_eq!(tabs, &vec![e3, e1, e2]),
-            _ => panic!(),
-        }
+        let Column::Tabs(tabs) = &column else {
+            panic!();
+        };
+        assert_eq!(tabs, &vec![e3, e1, e2]);
     }
 
     #[test]
@@ -1418,10 +1418,10 @@ mod tests {
         // Remove e2 (follower)
         strip.remove(e2);
         assert_eq!(strip.len(), 1);
-        match strip.get(0).unwrap() {
-            Column::Tabs(tabs) => assert_eq!(tabs, vec![e1, e3]),
-            _ => panic!(),
-        }
+        let Column::Tabs(tabs) = strip.get(0).unwrap() else {
+            panic!();
+        };
+        assert_eq!(tabs, vec![e1, e3]);
 
         // Remove e1 (leader)
         strip.remove(e1);
@@ -1452,9 +1452,9 @@ mod tests {
         }
 
         assert_eq!(strip.len(), 1);
-        match strip.get(0).unwrap() {
-            Column::Tabs(tabs) => assert_eq!(tabs, vec![e1, e2]),
-            _ => panic!(),
-        }
+        let Column::Tabs(tabs) = strip.get(0).unwrap() else {
+            panic!();
+        };
+        assert_eq!(tabs, vec![e1, e2]);
     }
 }

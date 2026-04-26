@@ -144,6 +144,8 @@ Virtual workspaces can also be navigated using trackpad gestures. If `[swipe.ges
 | Action | Description |
 | :--- | :--- |
 | `window_virtual_north` / `_south` | Switch to the previous/next virtual workspace (row of windows). |
+| `window_virtual_<number>` | Switch directly to a virtual workspace using 1-based numbering, creating it if needed. |
+| `window_virtualgoto_<number>` | Alias for `window_virtual_<number>`. |
 | `window_virtualmove_north` / `_south` | Move currently focused window to the previous/next virtual workspace and follow it. |
 | `window_virtualsend_north` / `_south` | Move currently focused window to the previous/next virtual workspace but stay on the current one. |
 
@@ -153,6 +155,7 @@ Virtual workspaces can also be navigated using trackpad gestures. If `[swipe.ges
 [bindings]
 window_virtual_north = "cmd + shift - k"
 window_virtual_south = "cmd + shift - j"
+window_virtual_5 = "cmd + shift - 5"
 window_virtualmove_north = "cmd + alt - k"
 window_virtualmove_south = "cmd + alt - j"
 ```
@@ -161,6 +164,8 @@ window_virtualmove_south = "cmd + alt - j"
 ```shell
 # Move to a the previous virtual workspace.
 $ paneru send-cmd window virtual north
+# Jump to virtual workspace 5, creating it if needed.
+$ paneru send-cmd window virtual 5
 # Move the current window to the next virtual workspace.
 $ paneru send-cmd window virtualmove south
 ```

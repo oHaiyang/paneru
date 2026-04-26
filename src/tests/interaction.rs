@@ -1,13 +1,32 @@
+use bevy::ecs::query::Has;
 use bevy::prelude::*;
 
 use crate::commands::{Command, Direction, Operation};
 use crate::config::{Config, MainOptions, WindowParams};
-use crate::ecs::SpawnWindowTrigger;
+use crate::ecs::layout::LayoutStrip;
+use crate::ecs::{ActiveWorkspaceMarker, SpawnWindowTrigger};
 use crate::events::Event;
 use crate::manager::{Origin, Size, Window};
 use crate::{assert_focused, assert_window_at, assert_window_size};
 
 use super::*;
+
+fn active_virtual_index(world: &mut World) -> u32 {
+    let mut query = world.query::<(&LayoutStrip, Has<ActiveWorkspaceMarker>)>();
+    let active = query
+        .iter(world)
+        .filter_map(|(strip, active)| active.then_some(strip.virtual_index))
+        .collect::<Vec<_>>();
+    assert_eq!(active.len(), 1, "expected exactly one active virtual row");
+    active[0]
+}
+
+fn virtual_row_exists(world: &mut World, virtual_index: u32) -> bool {
+    let mut query = world.query::<&LayoutStrip>();
+    query.iter(world).any(|strip| {
+        strip.id() == TEST_WORKSPACE_ID && strip.virtual_index == virtual_index && strip.len() == 0
+    })
+}
 
 #[test]
 fn test_dont_focus() {
@@ -58,6 +77,31 @@ fn test_dont_focus() {
             assert_window_at!(world, 0, 800, TEST_MENUBAR_HEIGHT);
             assert_window_at!(world, 3, offscreen_right, TEST_MENUBAR_HEIGHT);
             assert_focused!(world, 2);
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_virtual_goto_workspace() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::VirtualGoto(4)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::VirtualGoto(0)),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(1)
+        .on_iteration(1, |world| {
+            assert_eq!(active_virtual_index(world), 4);
+            assert!(virtual_row_exists(world, 4));
+        })
+        .on_iteration(2, |world| {
+            assert_eq!(active_virtual_index(world), 0);
+            assert!(virtual_row_exists(world, 4));
         })
         .run(commands);
 }

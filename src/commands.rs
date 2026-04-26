@@ -70,6 +70,8 @@ pub enum Operation {
     Snap,
     /// Cyclically selects the virtual strip for the current workspace.
     Virtual(Direction),
+    /// Selects a virtual strip by its 0-based index.
+    VirtualGoto(u32),
     /// Moves the focused window to the virtual strip.
     VirtualMove(Direction, MoveFocus),
 }

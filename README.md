@@ -194,6 +194,8 @@ $ paneru send-cmd <command> [args...]
 | `window nextdisplay`       | Move the focused window to the next display      |
 | `window nextdisplaysend`   | Move the window to the next display but stay here |
 | `window virtual <dir>`     | Switch to the previous/next virtual workspace     |
+| `window virtual <number>`  | Switch directly to a numbered virtual workspace   |
+| `window virtualgoto <num>` | Alias for `window virtual <number>`               |
 | `window virtualmove <dir>` | Move the window to a different virtual workspace  |
 | `window virtualsend <dir>` | Send the window to a virtual workspace but stay  |
 | `window snap`              | Snap the focused window into the visible viewport |
@@ -202,6 +204,7 @@ $ paneru send-cmd <command> [args...]
 | `quit`                     | Quit Paneru                                      |
 
 Where `<direction>` is one of: `west`, `east`, `north`, `south`, `first`, `last`.
+Virtual workspace numbers are 1-based; missing numbered rows are created empty.
 
 #### Examples
 

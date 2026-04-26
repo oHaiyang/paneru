@@ -14,7 +14,6 @@ use std::{
 };
 use stdext::function_name;
 use tracing::{error, info, warn};
-use xdg;
 
 use self::decorations::BorderRadiusOption;
 use self::swipe::SwipeGestureDirection;
@@ -157,6 +156,22 @@ fn parse_resize_direction(direction: &str) -> Result<ResizeDirection> {
     })
 }
 
+fn parse_virtual_index(index: &str) -> Result<u32> {
+    let display_index = index.parse::<u32>().map_err(|err| {
+        Error::InvalidConfig(format!(
+            "{}: Invalid virtual workspace index {index:?}: {err}",
+            function_name!()
+        ))
+    })?;
+
+    display_index.checked_sub(1).ok_or_else(|| {
+        Error::InvalidConfig(format!(
+            "{}: Virtual workspace indexes start at 1",
+            function_name!()
+        ))
+    })
+}
+
 /// Parses a command argument vector into an `Operation` enum.
 ///
 /// # Arguments
@@ -189,7 +204,14 @@ fn parse_operation(argv: &[&str]) -> Result<Operation> {
         "nextdisplay" => Operation::ToNextDisplay(MoveFocus::Follow),
         "nextdisplaysend" => Operation::ToNextDisplay(MoveFocus::Stay),
         "snap" => Operation::Snap,
-        "virtual" => Operation::Virtual(parse_direction(argv.get(1).ok_or(err)?)?),
+        "virtual" => {
+            let target = argv.get(1).ok_or(err)?;
+            match target.parse::<u32>() {
+                Ok(_) => Operation::VirtualGoto(parse_virtual_index(target)?),
+                Err(_) => Operation::Virtual(parse_direction(target)?),
+            }
+        }
+        "virtualgoto" => Operation::VirtualGoto(parse_virtual_index(argv.get(1).ok_or(err)?)?),
         "virtualmove" => {
             Operation::VirtualMove(parse_direction(argv.get(1).ok_or(err)?)?, MoveFocus::Follow)
         }
@@ -1484,6 +1506,19 @@ fn test_parse_resize_commands() {
         parse_command(&["window", "shrink"]).unwrap(),
         Command::Window(Operation::Resize(ResizeDirection::Shrink))
     ));
+}
+
+#[test]
+fn test_parse_virtual_goto_commands() {
+    assert!(matches!(
+        parse_command(&["window", "virtual", "5"]).unwrap(),
+        Command::Window(Operation::VirtualGoto(4))
+    ));
+    assert!(matches!(
+        parse_command(&["window", "virtualgoto", "5"]).unwrap(),
+        Command::Window(Operation::VirtualGoto(4))
+    ));
+    assert!(parse_command(&["window", "virtual", "0"]).is_err());
 }
 
 #[test]

@@ -62,6 +62,7 @@ pub fn register_systems(app: &mut bevy::app::App) {
             systems::dispatch_toplevel_triggers,
             systems::pump_events,
             workspace::switch_virtual_workspace_bind,
+            workspace::goto_virtual_workspace_bind,
             workspace::move_virtual_workspace_bind,
         ),
     );
