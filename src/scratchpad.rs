@@ -19,11 +19,35 @@ use crate::events::Event;
 use crate::manager::{Origin, Size, Window};
 use crate::overlay::ScratchpadOverlayManager;
 
-const SCRATCHPAD_WIDTH_RATIO: f64 = 0.80;
-const SCRATCHPAD_HEIGHT_RATIO: f64 = 0.70;
-const SCRATCHPAD_GAP: i32 = 12;
 const HIDDEN_OFFSET: i32 = 64;
 const HIDDEN_SIZE: i32 = 1;
+
+#[derive(Clone, Copy)]
+struct ScratchpadLayout {
+    width_ratio: f64,
+    height_ratio: f64,
+    gap: i32,
+}
+
+impl ScratchpadLayout {
+    fn from_config(config: &Config) -> Self {
+        Self {
+            width_ratio: config.scratchpad_width_ratio(),
+            height_ratio: config.scratchpad_height_ratio(),
+            gap: config.scratchpad_gap(),
+        }
+    }
+}
+
+impl Default for ScratchpadLayout {
+    fn default() -> Self {
+        Self {
+            width_ratio: 0.80,
+            height_ratio: 0.70,
+            gap: 12,
+        }
+    }
+}
 
 type ScratchpadWindowPlacementQuery<'w, 's> = Query<
     'w,
@@ -46,6 +70,7 @@ pub struct ScratchpadState {
     visible: bool,
     windows: Vec<Entity>,
     last_focused: Option<Entity>,
+    restore_focus: Option<Entity>,
 }
 
 impl ScratchpadState {
@@ -128,7 +153,13 @@ pub fn scratchpad_command_handler(
 
         match command {
             Command::Scratchpad(action) => {
-                handle_scratchpad_action(action, &mut state, &mut workspaces, &mut commands);
+                handle_scratchpad_action(
+                    action,
+                    &windows,
+                    &mut state,
+                    &mut workspaces,
+                    &mut commands,
+                );
             }
             Command::Window(Operation::Focus(direction)) => {
                 focus_scratchpad_window(direction, &windows, &mut state, &mut commands);
@@ -151,6 +182,7 @@ pub fn hide_scratchpad_on_virtual_workspace_change(
 ) {
     if state.visible && !changed_active_workspace.is_empty() {
         state.hide();
+        state.restore_focus = None;
     }
 }
 
@@ -169,6 +201,9 @@ pub fn prune_scratchpad_windows(
             .filter(|entity| state.windows.contains(entity))
             .or_else(|| state.windows.last().copied());
     }
+    state.restore_focus = state
+        .restore_focus
+        .filter(|entity| live_windows.get(*entity).is_ok());
     if state.windows.is_empty() {
         state.hide();
     }
@@ -185,9 +220,14 @@ pub fn position_scratchpad_windows(
     let viewport = active_display
         .display()
         .actual_display_bounds(active_display.dock(), &config);
+    let layout = ScratchpadLayout::from_config(&config);
 
     let targets = if state.visible {
-        scratchpad_window_frames(scratchpad_bounds(viewport), state.windows.len())
+        scratchpad_window_frames(
+            scratchpad_bounds(viewport, layout),
+            state.windows.len(),
+            layout,
+        )
     } else {
         vec![hidden_scratchpad_frame(viewport); state.windows.len()]
     };
@@ -240,15 +280,24 @@ pub fn update_scratchpad_overlay(
     let viewport = active_display
         .display()
         .actual_display_bounds(active_display.dock(), &config);
-    overlay.update(Some(nsrect_from_irect(scratchpad_bounds(viewport))));
+    overlay.update(Some(nsrect_from_irect(scratchpad_bounds(
+        viewport,
+        ScratchpadLayout::from_config(&config),
+    ))));
 }
 
 fn handle_scratchpad_action(
     action: &ScratchpadAction,
+    windows: &Windows,
     state: &mut ScratchpadState,
     workspaces: &mut Query<(Entity, &mut LayoutStrip, Has<ActiveWorkspaceMarker>)>,
     commands: &mut Commands,
 ) {
+    let was_visible = state.visible;
+    if should_record_restore_focus(action, was_visible) {
+        state.restore_focus = focused_active_workspace_entity(windows, workspaces);
+    }
+
     match action {
         ScratchpadAction::Toggle => state.toggle(),
         ScratchpadAction::Show => state.show(),
@@ -259,9 +308,16 @@ fn handle_scratchpad_action(
         for entity in state.raise_order() {
             focus_entity(entity, true, commands);
         }
-    } else {
-        focus_active_workspace(workspaces, commands);
+    } else if was_visible {
+        restore_active_workspace_focus(state, workspaces, commands);
     }
+}
+
+fn should_record_restore_focus(action: &ScratchpadAction, visible: bool) -> bool {
+    matches!(
+        (action, visible),
+        (ScratchpadAction::Toggle | ScratchpadAction::Show, false)
+    )
 }
 
 fn toggle_focused_window(
@@ -314,6 +370,7 @@ fn toggle_focused_window(
         strip.remove(focused_entity);
     }
 
+    state.restore_focus = source_neighbour;
     state.add_window(focused_entity);
     commands
         .entity(focused_entity)
@@ -398,41 +455,55 @@ fn scratchpad_target_index(direction: &Direction, index: usize, len: usize) -> O
     }
 }
 
-fn focus_active_workspace(
+fn focused_active_workspace_entity(
+    windows: &Windows,
+    workspaces: &mut Query<(Entity, &mut LayoutStrip, Has<ActiveWorkspaceMarker>)>,
+) -> Option<Entity> {
+    let (_, focused_entity) = windows.focused()?;
+    workspaces
+        .iter_mut()
+        .any(|(_, strip, active)| active && strip.contains(focused_entity))
+        .then_some(focused_entity)
+}
+
+fn restore_active_workspace_focus(
+    state: &mut ScratchpadState,
     workspaces: &mut Query<(Entity, &mut LayoutStrip, Has<ActiveWorkspaceMarker>)>,
     commands: &mut Commands,
 ) {
-    let focus = workspaces.iter_mut().find_map(|(_, strip, active)| {
-        active
-            .then(|| strip.first().ok().and_then(|column| column.top()))
-            .flatten()
-    });
+    let Some(entity) = state.restore_focus.take() else {
+        return;
+    };
 
-    if let Some(entity) = focus {
+    let should_restore = workspaces
+        .iter_mut()
+        .any(|(_, strip, active)| active && strip.contains(entity));
+
+    if should_restore {
         focus_entity(entity, true, commands);
     }
 }
 
-pub(crate) fn scratchpad_bounds(viewport: IRect) -> IRect {
-    let width = (f64::from(viewport.width()) * SCRATCHPAD_WIDTH_RATIO).round() as i32;
-    let height = (f64::from(viewport.height()) * SCRATCHPAD_HEIGHT_RATIO).round() as i32;
+fn scratchpad_bounds(viewport: IRect, layout: ScratchpadLayout) -> IRect {
+    let width = (f64::from(viewport.width()) * layout.width_ratio).round() as i32;
+    let height = (f64::from(viewport.height()) * layout.height_ratio).round() as i32;
     let size = Size::new(width.max(1), height.max(1));
     let min = viewport.center() - size / 2;
     IRect::from_corners(min, min + size)
 }
 
-fn scratchpad_window_frames(bounds: IRect, count: usize) -> Vec<IRect> {
+fn scratchpad_window_frames(bounds: IRect, count: usize, layout: ScratchpadLayout) -> Vec<IRect> {
     if count == 0 {
         return vec![];
     }
 
     let count_i32 = i32::try_from(count).unwrap_or(i32::MAX).max(1);
-    let total_gap = SCRATCHPAD_GAP * (count_i32 - 1);
+    let total_gap = layout.gap * (count_i32 - 1);
     let width = ((bounds.width() - total_gap) / count_i32).max(1);
     let mut frames = Vec::with_capacity(count);
 
     for index in 0..count_i32 {
-        let min_x = bounds.min.x + index * (width + SCRATCHPAD_GAP);
+        let min_x = bounds.min.x + index * (width + layout.gap);
         let max_x = if index + 1 == count_i32 {
             bounds.max.x
         } else {
@@ -461,13 +532,13 @@ fn nsrect_from_irect(rect: IRect) -> NSRect {
 
 #[cfg(test)]
 mod tests {
-    use super::{scratchpad_bounds, scratchpad_window_frames};
+    use super::{ScratchpadLayout, scratchpad_bounds, scratchpad_window_frames};
     use bevy::math::{IRect, IVec2};
 
     #[test]
     fn scratchpad_bounds_are_centered_in_viewport() {
         let viewport = IRect::from_corners(IVec2::new(0, 20), IVec2::new(1024, 768));
-        let bounds = scratchpad_bounds(viewport);
+        let bounds = scratchpad_bounds(viewport, ScratchpadLayout::default());
 
         assert_eq!(bounds.min, IVec2::new(103, 132));
         assert_eq!(bounds.size(), IVec2::new(819, 524));
@@ -476,7 +547,7 @@ mod tests {
     #[test]
     fn scratchpad_windows_share_bounds_horizontally() {
         let bounds = IRect::from_corners(IVec2::new(103, 132), IVec2::new(922, 656));
-        let frames = scratchpad_window_frames(bounds, 2);
+        let frames = scratchpad_window_frames(bounds, 2, ScratchpadLayout::default());
 
         assert_eq!(frames[0].min, IVec2::new(103, 132));
         assert_eq!(frames[0].size(), IVec2::new(403, 524));

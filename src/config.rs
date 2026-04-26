@@ -690,6 +690,34 @@ impl Config {
     pub fn auto_center(&self) -> bool {
         self.options().auto_center.is_some_and(|center| center)
     }
+
+    pub fn scratchpad_width_ratio(&self) -> f64 {
+        self.inner()
+            .scratchpad
+            .as_ref()
+            .and_then(|scratchpad| scratchpad.width_ratio)
+            .unwrap_or(0.80)
+            .clamp(0.1, 1.0)
+    }
+
+    pub fn scratchpad_height_ratio(&self) -> f64 {
+        self.inner()
+            .scratchpad
+            .as_ref()
+            .and_then(|scratchpad| scratchpad.height_ratio)
+            .unwrap_or(0.70)
+            .clamp(0.1, 1.0)
+    }
+
+    pub fn scratchpad_gap(&self) -> i32 {
+        i32::from(
+            self.inner()
+                .scratchpad
+                .as_ref()
+                .and_then(|scratchpad| scratchpad.gap)
+                .unwrap_or(12),
+        )
+    }
 }
 
 fn parse_hex_color(hex: &str) -> (f64, f64, f64) {
@@ -775,6 +803,7 @@ struct InnerConfig {
     decorations: Option<decorations::DecorationsOptions>,
     swipe: Option<swipe::SwipeOptions>,
     padding: Option<padding::PaddingOptions>,
+    scratchpad: Option<ScratchpadOptions>,
 }
 
 impl InnerConfig {
@@ -896,6 +925,16 @@ pub struct MainOptions {
 /// Returns a default set of column widths.
 pub fn default_preset_column_widths() -> Vec<f64> {
     vec![0.25, 0.33333, 0.50, 0.66667, 0.75]
+}
+
+#[derive(Deserialize, Clone, Debug, Default)]
+pub struct ScratchpadOptions {
+    /// Width of the scratchpad area as a ratio of the active viewport.
+    pub width_ratio: Option<f64>,
+    /// Height of the scratchpad area as a ratio of the active viewport.
+    pub height_ratio: Option<f64>,
+    /// Horizontal gap in pixels between scratchpad windows.
+    pub gap: Option<u16>,
 }
 
 /// `Keybinding` represents a keyboard shortcut and the command it triggers.
@@ -1725,4 +1764,26 @@ fn test_config_defaults() {
     assert_eq!(config.border_width(), 2.0);
     assert_eq!(config.border_radius(), BorderRadiusOption::Auto);
     assert_eq!(config.menubar_height(), None);
+    assert_eq!(config.scratchpad_width_ratio(), 0.80);
+    assert_eq!(config.scratchpad_height_ratio(), 0.70);
+    assert_eq!(config.scratchpad_gap(), 12);
+}
+
+#[test]
+#[allow(clippy::float_cmp)]
+fn test_scratchpad_options() {
+    let config = Config {
+        inner: Arc::new(ArcSwap::from_pointee(InnerConfig {
+            scratchpad: Some(ScratchpadOptions {
+                width_ratio: Some(0.9),
+                height_ratio: Some(0.6),
+                gap: Some(24),
+            }),
+            ..Default::default()
+        })),
+    };
+
+    assert_eq!(config.scratchpad_width_ratio(), 0.9);
+    assert_eq!(config.scratchpad_height_ratio(), 0.6);
+    assert_eq!(config.scratchpad_gap(), 24);
 }

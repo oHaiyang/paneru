@@ -189,12 +189,23 @@ does not create a native macOS workspace and it does not participate in the
 normal virtual workspace rows. Windows placed in it are laid out horizontally in
 a centered floating region with a semi-transparent background mask.
 
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `width_ratio` | Float (0.1–1.0) | `0.80` | Width of the scratchpad area as a ratio of the active viewport. |
+| `height_ratio` | Float (0.1–1.0) | `0.70` | Height of the scratchpad area as a ratio of the active viewport. |
+| `gap` | Integer (px) | `12` | Horizontal gap between scratchpad windows. |
+
 Switching Paneru virtual workspaces hides the scratchpad automatically. Calling
 `scratchpad toggle` on any virtual workspace shows the same scratchpad windows
 over the currently active row.
 
 **Example:**
 ```toml
+[scratchpad]
+width_ratio = 0.85
+height_ratio = 0.75
+gap = 16
+
 [bindings]
 window_scratchpad = "cmd + shift - return"
 scratchpad_toggle = "cmd - grave"

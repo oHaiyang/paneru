@@ -233,6 +233,44 @@ fn test_scratchpad_can_hold_multiple_windows() {
 }
 
 #[test]
+fn test_scratchpad_hide_restores_previous_active_workspace_focus() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Scratchpad),
+        },
+        Event::Command {
+            command: Command::Scratchpad(ScratchpadAction::Hide),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::East)),
+        },
+        Event::Command {
+            command: Command::Scratchpad(ScratchpadAction::Show),
+        },
+        Event::Command {
+            command: Command::Scratchpad(ScratchpadAction::Hide),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(3)
+        .on_iteration(2, |world| {
+            assert_focused!(world, 1);
+        })
+        .on_iteration(3, |world| {
+            assert_focused!(world, 0);
+        })
+        .on_iteration(4, |world| {
+            assert_focused!(world, 2);
+        })
+        .on_iteration(5, |world| {
+            assert_focused!(world, 0);
+        })
+        .run(commands);
+}
+
+#[test]
 fn test_scratchpad_focus_moves_between_windows() {
     let commands = vec![
         Event::MenuOpened { window_id: 0 },
