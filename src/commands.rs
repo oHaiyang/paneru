@@ -60,6 +60,13 @@ pub enum ResizeDirection {
     Shrink,
 }
 
+/// Edge used when scrolling the strip to align the focused window.
+#[derive(Clone, Copy, Debug)]
+pub enum ScrollEdge {
+    Left,
+    Right,
+}
+
 /// Controls whether focus follows the window after a move operation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MoveFocus {
@@ -95,6 +102,8 @@ pub enum Operation {
     /// Resizes and repositions the focused window to fit within the visible viewport
     /// (including edge padding).
     Snap,
+    /// Scrolls the strip so the focused window edge aligns to the viewport edge.
+    ScrollToEdge(ScrollEdge),
     /// Cyclically selects the virtual strip for the current workspace.
     Virtual(Direction),
     /// Selects a virtual strip by its zero-based index for the current workspace.
@@ -171,6 +180,7 @@ pub fn register_commands(app: &mut bevy::app::App) {
             command_raise_floating,
             command_toggle_floating_layer,
             command_swap_focus,
+            scroll_window_to_edge,
             snap_window,
         ),
     );
@@ -1314,6 +1324,55 @@ fn snap_window(
 
     let strip_position = frame.min - layout_position.0;
     commands.reposition_entity(active_display.active_strip_entity(), strip_position);
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn scroll_window_to_edge(
+    mut messages: MessageReader<Event>,
+    windows: Windows,
+    scratchpad_state: Res<ScratchpadState>,
+    scratchpad_windows: Query<(), With<ScratchpadWindowMarker>>,
+    active_display: ActiveDisplay,
+    config: Res<Config>,
+    mut commands: Commands,
+) {
+    let Some(Operation::ScrollToEdge(edge)) =
+        filter_window_operations(&mut messages, |op| matches!(op, Operation::ScrollToEdge(_)))
+            .next()
+    else {
+        return;
+    };
+
+    if scratchpad_has_focus(&windows, &scratchpad_state, &scratchpad_windows) {
+        return;
+    }
+
+    let Some((_, entity)) = windows.focused() else {
+        return;
+    };
+    if !active_display.active_strip().contains(entity) {
+        return;
+    }
+
+    let Some(layout_position) = windows.layout_position(entity) else {
+        return;
+    };
+    let Some(frame) = windows.moving_frame(entity) else {
+        return;
+    };
+
+    let viewport = active_display
+        .display()
+        .actual_display_bounds(active_display.dock(), &config);
+    let strip_x = match edge {
+        ScrollEdge::Left => viewport.min.x - layout_position.0.x,
+        ScrollEdge::Right => viewport.max.x - layout_position.0.x - frame.width(),
+    };
+
+    commands.reposition_entity(
+        active_display.active_strip_entity(),
+        Origin::new(strip_x, frame.min.y - layout_position.0.y),
+    );
 }
 
 #[instrument(level = Level::DEBUG, skip_all)]

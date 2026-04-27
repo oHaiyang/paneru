@@ -54,8 +54,8 @@ type ScratchpadWindowPlacementQuery<'w, 's> = Query<
     's,
     (
         Entity,
-        &'static Position,
-        &'static Bounds,
+        &'static mut Position,
+        &'static mut Bounds,
         Option<&'static RepositionMarker>,
         Option<&'static ResizeMarker>,
     ),
@@ -212,7 +212,7 @@ pub fn prune_scratchpad_windows(
 #[allow(clippy::needless_pass_by_value)]
 pub fn position_scratchpad_windows(
     state: Res<ScratchpadState>,
-    scratchpad_windows: ScratchpadWindowPlacementQuery,
+    mut scratchpad_windows: ScratchpadWindowPlacementQuery,
     active_display: ActiveDisplay,
     config: Res<Config>,
     mut commands: Commands,
@@ -233,18 +233,25 @@ pub fn position_scratchpad_windows(
     };
 
     for (entity, target) in state.windows.iter().copied().zip(targets) {
-        let Ok((_, position, bounds, reposition, resize)) = scratchpad_windows.get(entity) else {
+        let Ok((_, mut position, mut bounds, reposition, resize)) =
+            scratchpad_windows.get_mut(entity)
+        else {
             continue;
         };
 
         let target_origin = target.min;
         let target_size = target.size();
-        if reposition.is_none_or(|marker| **marker != target_origin) && position.0 != target_origin
-        {
-            commands.reposition_entity(entity, target_origin);
+        if position.0 != target_origin {
+            position.0 = target_origin;
         }
-        if resize.is_none_or(|marker| **marker != target_size) && bounds.0 != target_size {
-            commands.resize_entity(entity, target_size);
+        if bounds.0 != target_size {
+            bounds.0 = target_size;
+        }
+        if reposition.is_some() || resize.is_some() {
+            commands
+                .entity(entity)
+                .try_remove::<RepositionMarker>()
+                .try_remove::<ResizeMarker>();
         }
     }
 }

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bevy::prelude::*;
 use objc2_core_foundation::CGPoint;
 
-use crate::commands::{Command, Direction, MoveFocus, Operation, ScratchpadAction};
+use crate::commands::{Command, Direction, MoveFocus, Operation, ScratchpadAction, ScrollEdge};
 use crate::config::{Config, MainOptions, WindowParams, parse_command};
 use crate::ecs::display::FloatingLayer;
 use crate::ecs::{
@@ -643,6 +643,64 @@ fn test_scrolling_stop() {
             let scroll = query.single(world).unwrap();
             assert_eq!(scroll.velocity, 0.0);
             assert!(scroll.is_user_swiping);
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_scroll_window_to_left_edge() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::Last)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::West)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::ScrollToEdge(ScrollEdge::Left)),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(5)
+        .on_iteration(3, |world, _| {
+            assert_window_at!(world, 1, 0, TEST_MENUBAR_HEIGHT);
+            assert_window_at!(world, 0, TEST_WINDOW_WIDTH, TEST_MENUBAR_HEIGHT);
+        })
+        .run(commands);
+}
+
+#[test]
+fn test_scroll_window_to_right_edge() {
+    let commands = vec![
+        Event::MenuOpened { window_id: 0 },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::First)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::Focus(Direction::East)),
+        },
+        Event::Command {
+            command: Command::Window(Operation::ScrollToEdge(ScrollEdge::Right)),
+        },
+    ];
+
+    TestHarness::new()
+        .with_windows(5)
+        .on_iteration(3, |world, _| {
+            assert_window_at!(
+                world,
+                3,
+                TEST_DISPLAY_WIDTH - TEST_WINDOW_WIDTH,
+                TEST_MENUBAR_HEIGHT
+            );
+            assert_window_at!(
+                world,
+                4,
+                TEST_DISPLAY_WIDTH - 2 * TEST_WINDOW_WIDTH,
+                TEST_MENUBAR_HEIGHT
+            );
         })
         .run(commands);
 }

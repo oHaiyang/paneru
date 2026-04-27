@@ -22,6 +22,7 @@ use self::swipe::SwipeGestureDirection;
 use crate::{
     commands::{
         Command, Direction, MouseMove, MoveFocus, Operation, ResizeDirection, ScratchpadAction,
+        ScrollEdge,
     },
     manager::ProcessApi,
     platform::{Modifiers, OSStatus, macos_major_version},
@@ -232,6 +233,19 @@ fn parse_resize_direction(direction: &str) -> Result<ResizeDirection> {
     })
 }
 
+fn parse_scroll_edge(edge: &str) -> Result<ScrollEdge> {
+    Ok(match edge {
+        "left" | "west" => ScrollEdge::Left,
+        "right" | "east" => ScrollEdge::Right,
+        _ => {
+            return Err(Error::InvalidConfig(format!(
+                "{}: Unhandled scroll edge {edge}",
+                function_name!()
+            )));
+        }
+    })
+}
+
 /// Parses a command argument vector into an `Operation` enum.
 ///
 /// # Arguments
@@ -276,6 +290,7 @@ fn parse_operation(argv: &[&str]) -> Result<Operation> {
         "nextdisplay" => Operation::ToNextDisplay(MoveFocus::Follow),
         "nextdisplaysend" => Operation::ToNextDisplay(MoveFocus::Stay),
         "snap" => Operation::Snap,
+        "scroll" => Operation::ScrollToEdge(parse_scroll_edge(argv.get(1).ok_or(err)?)?),
         "virtual" => {
             let target = argv.get(1).ok_or(err)?;
             target.parse::<u32>().map_or_else(
@@ -1937,6 +1952,27 @@ fn test_parse_resize_commands() {
         parse_command(&["window", "shrink"]).unwrap(),
         Command::Window(Operation::Resize(ResizeDirection::Shrink))
     ));
+}
+
+#[test]
+fn test_parse_scroll_commands() {
+    assert!(matches!(
+        parse_command(&["window", "scroll", "left"]).unwrap(),
+        Command::Window(Operation::ScrollToEdge(ScrollEdge::Left))
+    ));
+    assert!(matches!(
+        parse_command(&["window", "scroll", "right"]).unwrap(),
+        Command::Window(Operation::ScrollToEdge(ScrollEdge::Right))
+    ));
+    assert!(matches!(
+        parse_command(&["window", "scroll", "west"]).unwrap(),
+        Command::Window(Operation::ScrollToEdge(ScrollEdge::Left))
+    ));
+    assert!(matches!(
+        parse_command(&["window", "scroll", "east"]).unwrap(),
+        Command::Window(Operation::ScrollToEdge(ScrollEdge::Right))
+    ));
+    assert!(parse_command(&["window", "scroll", "north"]).is_err());
 }
 
 #[test]

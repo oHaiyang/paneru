@@ -158,6 +158,7 @@ https://github.com/karinushka/paneru/blob/3790b01f8d65df5d9000142db7cf25f9270dcc
 | `window_snap` | Snap an overflowing window into the viewport. |
 | `window_raise_floating` | Make the floating windows layer visible on the current workspace. |
 | `window_togglefloatlayer` | Selectively move the floating windows in front or behind of the workspace windows. |
+| `window_scroll_left` / `_right` | Scroll the strip so the focused window's left/right edge aligns to the viewport edge. |
 | `window_scratchpad` | Toggle the focused window in the global scratchpad. |
 | `scratchpad` / `scratchpad_toggle` | Show or hide the global scratchpad. |
 | `scratchpad_show` | Show the global scratchpad. |
