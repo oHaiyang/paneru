@@ -118,6 +118,7 @@ Format: `"[modifiers-]key"`. Available modifiers are:
 | `window_nextdisplaysend` | Move focused window to the next monitor but stay on current. |
 | `mouse_nextdisplay` | Warp mouse cursor to the next monitor. |
 | `window_snap` | Snap an overflowing window into the viewport. |
+| `window_scroll_left` / `_right` | Scroll the strip so the focused window's left/right edge aligns to the viewport edge. |
 | `window_scratchpad` | Toggle the focused window in the global scratchpad. |
 | `scratchpad` / `scratchpad_toggle` | Show or hide the global scratchpad. |
 | `scratchpad_show` | Show the global scratchpad. |
