@@ -341,7 +341,7 @@ fn nearest_float_in_direction(
 /// # Returns
 ///
 /// `Some(Entity)` with the entity of the newly focused window, otherwise `None`.
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)]
 fn command_move_focus(
     mut messages: MessageReader<Event>,
     windows: Windows,

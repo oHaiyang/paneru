@@ -286,12 +286,12 @@ fn test_window_scratchpad_moves_focused_window_to_floating_scratchpad() {
         .with_windows(2)
         .on_iteration(1, |world, _| {
             assert_eq!(active_virtual_index(world), 0);
-            assert!(scratchpad_contains_window(world, 1));
-            assert!(!virtual_row_has_window(world, 0, 1));
+            assert!(scratchpad_contains_window(world, 0));
+            assert!(!virtual_row_has_window(world, 0, 0));
             assert!(world.resource::<ScratchpadState>().is_visible());
-            assert_focused!(world, 1);
-            assert_window_at!(world, 1, 103, 132);
-            assert_window_size!(world, 1, 819, 524);
+            assert_focused!(world, 0);
+            assert_window_at!(world, 0, 103, 132);
+            assert_window_size!(world, 0, 819, 524);
         })
         .run(commands);
 }
@@ -316,11 +316,11 @@ fn test_scratchpad_can_hold_multiple_windows() {
         .on_iteration(3, |world, _| {
             assert_eq!(world.resource::<ScratchpadState>().window_count(), 2);
             assert!(world.resource::<ScratchpadState>().is_visible());
-            assert!(scratchpad_contains_window(world, 2));
+            assert!(scratchpad_contains_window(world, 0));
             assert!(scratchpad_contains_window(world, 1));
             assert_focused!(world, 1);
-            assert_window_at!(world, 2, 103, 132);
-            assert_window_size!(world, 2, 403, 524);
+            assert_window_at!(world, 0, 103, 132);
+            assert_window_size!(world, 0, 403, 524);
             assert_window_at!(world, 1, 518, 132);
             assert_window_size!(world, 1, 404, 524);
         })
@@ -354,13 +354,13 @@ fn test_scratchpad_hide_restores_previous_active_workspace_focus() {
             assert_focused!(world, 1);
         })
         .on_iteration(3, |world, _| {
-            assert_focused!(world, 0);
-        })
-        .on_iteration(4, |world, _| {
             assert_focused!(world, 2);
         })
-        .on_iteration(5, |world, _| {
+        .on_iteration(4, |world, _| {
             assert_focused!(world, 0);
+        })
+        .on_iteration(5, |world, _| {
+            assert_focused!(world, 2);
         })
         .run(commands);
 }
@@ -396,13 +396,13 @@ fn test_scratchpad_focus_moves_between_windows() {
         .with_windows(3)
         .on_iteration(4, |world, _| {
             assert!(world.resource::<ScratchpadState>().is_visible());
-            assert_focused!(world, 2);
+            assert_focused!(world, 0);
         })
         .on_iteration(5, |world, _| {
             assert_focused!(world, 1);
         })
         .on_iteration(6, |world, _| {
-            assert_focused!(world, 2);
+            assert_focused!(world, 0);
         })
         .on_iteration(7, |world, _| {
             assert_focused!(world, 1);
@@ -437,13 +437,13 @@ fn test_scratchpad_swap_reorders_windows() {
             assert_focused!(world, 1);
             assert_window_at!(world, 1, 103, 132);
             assert_window_size!(world, 1, 403, 524);
-            assert_window_at!(world, 2, 518, 132);
-            assert_window_size!(world, 2, 404, 524);
+            assert_window_at!(world, 0, 518, 132);
+            assert_window_size!(world, 0, 404, 524);
         })
         .on_iteration(5, |world, _| {
             assert_focused!(world, 1);
-            assert_window_at!(world, 2, 103, 132);
-            assert_window_size!(world, 2, 403, 524);
+            assert_window_at!(world, 0, 103, 132);
+            assert_window_size!(world, 0, 403, 524);
             assert_window_at!(world, 1, 518, 132);
             assert_window_size!(world, 1, 404, 524);
         })
@@ -474,14 +474,14 @@ fn test_virtual_workspace_switch_hides_scratchpad_without_moving_it_between_rows
         .on_iteration(2, |world, _| {
             assert!(!world.resource::<ScratchpadState>().is_visible());
             assert_eq!(active_virtual_index(world), 4);
-            assert!(scratchpad_contains_window(world, 1));
-            assert!(!virtual_row_has_window(world, 4, 1));
+            assert!(scratchpad_contains_window(world, 0));
+            assert!(!virtual_row_has_window(world, 4, 0));
         })
         .on_iteration(3, |world, _| {
             assert!(world.resource::<ScratchpadState>().is_visible());
             assert_eq!(active_virtual_index(world), 4);
-            assert_window_at!(world, 1, 103, 132);
-            assert_window_size!(world, 1, 819, 524);
+            assert_window_at!(world, 0, 103, 132);
+            assert_window_size!(world, 0, 819, 524);
         })
         .run(commands);
 }
@@ -665,8 +665,8 @@ fn test_scroll_window_to_left_edge() {
     TestHarness::new()
         .with_windows(5)
         .on_iteration(3, |world, _| {
-            assert_window_at!(world, 1, 0, TEST_MENUBAR_HEIGHT);
-            assert_window_at!(world, 0, TEST_WINDOW_WIDTH, TEST_MENUBAR_HEIGHT);
+            assert_window_at!(world, 3, 0, TEST_MENUBAR_HEIGHT);
+            assert_window_at!(world, 4, TEST_WINDOW_WIDTH, TEST_MENUBAR_HEIGHT);
         })
         .run(commands);
 }
@@ -691,13 +691,13 @@ fn test_scroll_window_to_right_edge() {
         .on_iteration(3, |world, _| {
             assert_window_at!(
                 world,
-                3,
+                1,
                 TEST_DISPLAY_WIDTH - TEST_WINDOW_WIDTH,
                 TEST_MENUBAR_HEIGHT
             );
             assert_window_at!(
                 world,
-                4,
+                0,
                 TEST_DISPLAY_WIDTH - 2 * TEST_WINDOW_WIDTH,
                 TEST_MENUBAR_HEIGHT
             );
@@ -2029,11 +2029,21 @@ fn test_virtual_workspace_switch_hides_old_strip_with_animations() {
 /// the edges.
 #[test]
 fn test_stack_unstack_brings_focused_window_into_view() {
+    for expire_second_swipe in [false, true] {
+        check_stack_unstack_brings_focused_window_into_view(expire_second_swipe);
+    }
+}
+
+fn check_stack_unstack_brings_focused_window_into_view(expire_second_swipe: bool) {
     use crate::ecs::{Bounds, Position, Scrolling};
 
     let config: Config = (
         MainOptions {
             auto_center: Some(false),
+            // This test keeps keyboard focus on window 1. A real-time swipe
+            // timeout emits MouseMoved, and the mock hit-test always returns
+            // window 0, so focus-following would make it depend on CPU load.
+            focus_follows_mouse: Some(false),
             animation_speed: Some(10000.0),
             swipe_gesture_fingers: Some(3),
             ..Default::default()
@@ -2060,13 +2070,26 @@ fn test_stack_unstack_brings_focused_window_into_view() {
     // Emulate the real-app settled state after a swipe: the strip is scrolled
     // and the transient Scrolling has been removed (swiping_timeout drops it
     // within ~50ms in the app; the test harness's fast wall-clock wouldn't).
-    let settle_scroll_offset = |h: &mut TestHarness| {
+    let mut swipe_count = 0;
+    let mut settle_scroll_offset = |h: &mut TestHarness| {
+        swipe_count += 1;
         h.app.world_mut().write_message::<Event>(Event::Swipe {
             delta: 0.9,
             fingers: 3,
         });
-        for _ in 0..16 {
+        for frame in 0..16 {
             h.app.update();
+            // Exercise the timeout deterministically, without sleeping. This
+            // used to transfer focus to window 0 before the unstack command.
+            if expire_second_swipe && swipe_count == 2 && frame == 0 {
+                let world = h.app.world_mut();
+                let mut scrolling = world.query::<&mut Scrolling>();
+                for mut scroll in scrolling.iter_mut(world) {
+                    scroll.last_event = std::time::Instant::now()
+                        .checked_sub(std::time::Duration::from_secs(1))
+                        .expect("the monotonic clock supports a one-second lookback");
+                }
+            }
             for e in h.mock_state.drain_events() {
                 h.app.world_mut().write_message::<Event>(e);
             }
@@ -2100,6 +2123,7 @@ fn test_stack_unstack_brings_focused_window_into_view() {
     pump(&mut h, Command::Window(Operation::Focus(Direction::First)));
     pump(&mut h, Command::Window(Operation::Focus(Direction::East)));
     settle_scroll_offset(&mut h);
+    assert_focused!(h.app.world_mut(), 1);
     assert!(
         !is_fully_onscreen(&mut h, 1),
         "test setup: focused window should be off-screen before stacking"
@@ -2114,6 +2138,7 @@ fn test_stack_unstack_brings_focused_window_into_view() {
     // Scroll off-screen again, then unstack: the focused window moves out to
     // its own column and must likewise be brought into view.
     settle_scroll_offset(&mut h);
+    assert_focused!(h.app.world_mut(), 1);
     assert!(
         !is_fully_onscreen(&mut h, 1),
         "test setup: focused window should be off-screen before unstacking"

@@ -239,6 +239,7 @@ $ paneru send-cmd <command> [args...]
 | `scratchpad show`         | Show the global scratchpad                        |
 | `scratchpad hide`         | Hide the global scratchpad                        |
 | `window snap`              | Snap the focused window into the visible viewport |
+| `window scroll left` / `right` | Align the focused window's left/right edge with the viewport |
 | `mouse nextdisplay`        | Warp the mouse pointer to the next display       |
 | `printstate`               | Print the internal ECS state to the debug log    |
 | `quit`                     | Quit Paneru                                      |

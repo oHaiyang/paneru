@@ -196,6 +196,12 @@ Virtual workspaces can also be navigated using trackpad gestures. If `[swipe.ges
 | `window_virtualmovenum_<number>` | Move currently focused window to the numbered virtual workspace and follow it. |
 | `window_virtualsendnum_<number>` | Move currently focused window to the numbered virtual workspace but stay on the current one. |
 
+Workspace numbers start at 1. When migrating from the older `haiyang` fork,
+`window_virtual_<number>`, `window_virtualmove_<number>`, and
+`window_virtualsend_<number>` still work. Replace the old `window_virtualgoto_`,
+`window_virtualmoveto_`, and `window_virtualsendto_` aliases with
+`window_virtualnum_`, `window_virtualmovenum_`, and `window_virtualsendnum_`,
+respectively, keeping the same number.
 
 **Example:**
 ```toml
@@ -231,6 +237,7 @@ $ paneru send-cmd window virtualsendnum 3
 
 See [QUERY_AND_SUBSCRIBE_FORMAT.md](QUERY_AND_SUBSCRIBE_FORMAT.md) for the
 structured `paneru query` responses and `paneru subscribe` event stream.
+
 ### Scratchpad (Experimental)
 
 The scratchpad is a single global floating area for Paneru-managed windows. It

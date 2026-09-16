@@ -23,8 +23,8 @@ use crate::ecs::{
 };
 use crate::events::Event;
 use crate::manager::{Application, Display, Window, WindowManager};
-use crate::scratchpad::ScratchpadWindowMarker;
 use crate::platform::WorkspaceId;
+use crate::scratchpad::ScratchpadWindowMarker;
 
 const REFRESH_WINDOW_CHECK_FREQ_MS: u64 = 1000;
 
@@ -144,7 +144,7 @@ fn maintain_focus_singleton(
     config.set_ffm_flag(None);
 }
 
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)]
 #[instrument(level = Level::DEBUG, skip_all, fields(trigger))]
 fn autocenter_window_on_focus(
     focused: Single<Entity, Added<FocusedMarker>>,
